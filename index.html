@@ -371,6 +371,75 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 @media (max-width:1000px){.gh-legend{grid-template-columns:1fr 1fr}}
 @media (max-width:560px){.gh-legend{grid-template-columns:1fr}}
 
+/* ---------- About: profile card ---------- */
+.pc{border:1px solid var(--line-2);border-radius:12px;background:var(--ink-2);overflow:hidden}
+.pc h4{margin:0;font-weight:400}
+.pc p{margin:0}
+.pc-head{display:flex;justify-content:space-between;gap:1.5rem;padding:clamp(1.4rem,3vw,2.2rem)}
+.pc-name{margin:0;font-weight:600;font-size:clamp(1.9rem,3.6vw,2.6rem);letter-spacing:-.04em;line-height:1.05}
+.pc .pc-role{margin-top:.7rem;font-size:.85rem;text-transform:none;letter-spacing:.02em;color:var(--bone)}
+.pc-role span{color:var(--ember)}
+.pc .pc-bio{margin-top:1rem;max-width:38rem;color:var(--mute);line-height:1.55}
+.pc-links{list-style:none;margin:1.4rem 0 0;padding:0;display:flex;gap:.6rem;flex-wrap:wrap}
+.pc-links a,.pc-links button{display:grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid var(--line-2);border-radius:8px;background:transparent;color:var(--bone);cursor:pointer;transition:border-color 200ms ease,color 200ms ease,transform 160ms var(--ease-out)}
+.pc-links svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.pc-links a:active,.pc-links button:active{transform:scale(.94)}
+.pc-links button.is-done{border-color:var(--ember);color:var(--ember)}
+@media (hover:hover) and (pointer:fine){.pc-links a:hover,.pc-links button:hover{border-color:var(--ember);color:var(--ember)}}
+.pc-photo{margin:0;flex:none;width:clamp(96px,13vw,148px);aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line-2);background:var(--ink-3)}
+.pc-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 25%}
+.pc-bar{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1.1rem;border-bottom:1px solid var(--line);color:var(--mute);letter-spacing:.14em}
+.pc-bar h4{letter-spacing:inherit;white-space:nowrap}
+.pc-bar--top{border-top:1px solid var(--line)}
+.pc-total{letter-spacing:.04em;text-transform:none;text-align:right}
+.pc-total b{color:var(--bone);font-weight:500}
+.pc-act{border-top:1px solid var(--line)}
+.pc-cal-wrap{overflow-x:auto;padding:1.2rem 1.1rem .6rem;scrollbar-width:thin;direction:rtl}
+.pc-cal{direction:ltr;display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,11px);grid-auto-columns:11px;gap:3px;width:max-content;margin:0 auto;min-height:95px}
+.pc-cal i,.pc-scale i{display:block;width:11px;height:11px;border-radius:2px;background:var(--lv,#1f1f23)}
+.pc [data-l="0"]{--lv:#1f1f23}
+.pc [data-l="1"]{--lv:color-mix(in srgb,var(--ember) 28%,var(--ink-3))}
+.pc [data-l="2"]{--lv:color-mix(in srgb,var(--ember) 50%,var(--ink-3))}
+.pc [data-l="3"]{--lv:color-mix(in srgb,var(--ember) 75%,var(--ink-3))}
+.pc [data-l="4"]{--lv:var(--ember)}
+.pc-cal-foot{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:0 1.1rem 1rem;color:var(--mute);text-transform:none}
+.pc-cal-foot a{text-decoration:none;transition:color 200ms ease}
+@media (hover:hover) and (pointer:fine){.pc-cal-foot a:hover{color:var(--ember)}}
+.pc-scale{display:flex;align-items:center;gap:3px}
+.pc-scale i:first-of-type{margin-left:.4rem}.pc-scale i:last-of-type{margin-right:.4rem}
+.pc-scale i{width:10px;height:10px}
+.pc-act.is-failed .pc-cal-wrap,.pc-act.is-failed .pc-scale{display:none}
+.pc-act.is-failed .pc-cal-foot{padding-top:1rem}
+.pc-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,.95fr);border-top:1px solid var(--line)}
+.pc-col+.pc-col{border-left:1px solid var(--line)}
+.pc-list{list-style:none;margin:0;padding:0 1.1rem}
+.pc-list>li+li{border-top:1px solid var(--line)}
+.pc .pc-t{font-weight:600;font-size:1rem;letter-spacing:-.01em;color:var(--bone)}
+.pc .pc-s{margin-top:.2rem;font-size:.88rem;color:var(--mute);line-height:1.4}
+.pc-exp{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:.9rem;align-items:center;padding:1rem 0}
+.pc-logo{display:grid;place-items:center;width:40px;height:40px;border-radius:8px;background:var(--ember);color:var(--ink);font-weight:700;font-size:1.05rem;letter-spacing:-.02em}
+.pc-logo--edu{background:var(--ink-3);color:var(--bone);border:1px solid var(--line-2);font-size:.85rem}
+.pc-date{color:var(--mute);text-transform:none;white-space:nowrap;align-self:start;padding-top:.15rem}
+.pc-work{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center;padding:1rem 0;text-decoration:none}
+.pc-work .pc-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-chev{color:var(--mute);font-size:1.4rem;line-height:1;transition:transform 200ms var(--ease-out),color 200ms ease}
+@media (hover:hover) and (pointer:fine){.pc-work:hover .pc-t,.pc-work:hover .pc-chev{color:var(--ember)}.pc-work:hover .pc-chev{transform:translateX(3px)}}
+.pc-pad{padding:1rem 1.1rem 1.2rem}
+.pc .pc-sub{color:var(--mute);margin:0 0 .6rem}
+.pc .pc-tags+.pc-sub{margin-top:1.2rem}
+.pc-tags{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.45rem}
+.pc-tags li{padding:.35rem .7rem;border:1px solid var(--line-2);border-radius:6px;background:var(--ink-3);font-size:.88rem;color:var(--bone)}
+@media (max-width:1000px){
+  .pc-grid{grid-template-columns:1fr 1fr}
+  .pc-col.pc-side{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}
+}
+@media (max-width:640px){
+  .pc-head{flex-direction:column-reverse}
+  .pc-photo{width:96px}
+  .pc-grid{grid-template-columns:1fr}
+  .pc-col+.pc-col{border-left:0;border-top:1px solid var(--line)}
+}
+
 /* ---------- GitHub section ---------- */
 .gh-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:1.25rem;align-items:start}
 .readme{border:1px solid var(--line-2);border-radius:10px;background:var(--ink-2);overflow:hidden}
@@ -675,22 +744,69 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       <h2 class="h2" id="about-title" data-split>Build it. <span class="soft">Then take it apart.</span></h2>
     </div>
 
-    <div class="about-grid" data-about-grid>
-      <figure class="portrait" data-portrait>
-        <div class="frame"><img src="assets/portrait.jpg" alt="Portrait of Jan Saquilayan" width="800" height="1000" loading="lazy" decoding="async" onerror="this.closest('[data-portrait]').remove();document.querySelector('[data-about-grid]').classList.add('no-photo')"></div>
-        <figcaption class="mono"><span>Jan Saquilayan</span><span>BIT14</span></figcaption>
-      </figure>
+    <article class="pc" data-reveal aria-label="Profile">
+      <!-- Header: name, role, bio, links, photo -->
+      <header class="pc-head">
+        <div class="pc-id">
+          <h3 class="pc-name">Jan Saquilayan</h3>
+          <p class="pc-role mono">Software Engineer at <span>UNIA LLC</span></p>
+          <p class="pc-bio">Software engineer focused on native development, Unity game development and reverse engineering. BS Information Technology at De La Salle University–Dasmariñas.</p>
+          <ul class="pc-links">
+            <li><a href="mailto:jan.saquilayan019@gmail.com" aria-label="Email" title="Email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a></li>
+            <li><a href="https://github.com/Eienmode" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li>
+            <li><a href="https://www.instagram.com/eieneeeee/" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg></a></li>
+            <li><button type="button" data-copy="eienee" aria-label="Copy Discord username eienee" title="Discord: eienee (click to copy)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 16.5c-1.8-.4-3.3-1-4.5-1.9C3.8 10.4 4.9 7 7 4.8c1.1-.5 2.2-.8 3.3-1l.5 1.1a12 12 0 0 1 2.4 0l.5-1.1c1.1.2 2.2.5 3.3 1 2.1 2.2 3.2 5.6 3 9.8-1.2.9-2.7 1.5-4.5 1.9l-1-1.6"/><path d="M8 14.3c2.6 1.2 5.4 1.2 8 0"/><circle cx="9.3" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="14.7" cy="11" r="1" fill="currentColor" stroke="none"/></svg></button></li>
+          </ul>
+        </div>
+        <figure class="pc-photo" data-pc-photo><img src="assets/portrait.jpg" alt="Portrait of Jan Saquilayan" width="800" height="1000" loading="lazy" decoding="async" onerror="this.closest('[data-pc-photo]').remove()"></figure>
+      </header>
 
-      <div>
-        <p class="statement" data-scrub>I'm a software engineer and the founder of UNIA LLC, currently pursuing a BS in Information Technology at De La Salle University–Dasmariñas. I work primarily in C++, developing games in Unity and specializing in reverse engineering: memory analysis, engine internals and runtime behavior. Understanding how software works beneath the surface shapes <span class="ember">how I design and build it.</span> I apply that same rigor to web development, to UNIA!, a Windows desktop application, and to the Java programming exercises I write for my university's junior students.</p>
+      <!-- GitHub activity: filled live from GitHub's public contribution data -->
+      <section class="pc-act" aria-labelledby="pc-act-title" data-gh-activity>
+        <div class="pc-bar"><h4 class="mono" id="pc-act-title">GitHub activity</h4><span class="mono pc-total" data-gh-total>Loading…</span></div>
+        <div class="pc-cal-wrap"><div class="pc-cal" data-gh-cal role="img" aria-label="GitHub contribution calendar for the last year"></div></div>
+        <div class="pc-cal-foot mono"><a href="https://github.com/Eienmode" target="_blank" rel="noopener">@Eienmode ↗</a><span class="pc-scale" aria-hidden="true">Less <i data-l="0"></i><i data-l="1"></i><i data-l="2"></i><i data-l="3"></i><i data-l="4"></i> More</span></div>
+      </section>
 
-        <div class="now">
-          <div><span class="mono">Focus</span><p>Unity game development, reverse engineering and game hacking.</p></div>
-          <div><span class="mono">Currently</span><p>Running UNIA LLC. Building Project UNIA in C# and WPF. Learning Java in depth.</p></div>
-          <div><span class="mono">Looking for</span><p>Clients, web, and back-end projects.</p></div>
+      <div class="pc-grid">
+        <section class="pc-col" aria-labelledby="pc-exp-title">
+          <h4 class="pc-bar mono" id="pc-exp-title">Experience</h4>
+          <ul class="pc-list">
+            <li class="pc-exp"><span class="pc-logo" aria-hidden="true">U</span><div><p class="pc-t">Founder &amp; Software Engineer</p><p class="pc-s">UNIA LLC · Software &amp; Game Development</p></div><span class="pc-date mono">Present</span></li>
+            <li class="pc-exp"><span class="pc-logo" aria-hidden="true">A</span><div><p class="pc-t">Developer</p><p class="pc-s">Akebi-GC · Game Runtime Tooling (C++)</p></div><span class="pc-date mono">2022</span></li>
+            <li class="pc-exp"><span class="pc-logo pc-logo--edu" aria-hidden="true">DL</span><div><p class="pc-t">BS Information Technology</p><p class="pc-s">De La Salle University–Dasmariñas</p></div><span class="pc-date mono">Present</span></li>
+          </ul>
+        </section>
+
+        <section class="pc-col" aria-labelledby="pc-work-title">
+          <h4 class="pc-bar mono" id="pc-work-title">Selected work</h4>
+          <ul class="pc-list">
+            <li><a class="pc-work" href="#work"><div><p class="pc-t">UNIA-GC</p><p class="pc-s">UNIA LLC · 2026</p></div><span class="pc-chev" aria-hidden="true">›</span></a></li>
+            <li><a class="pc-work" href="https://github.com/Eienmode/Akebi-GC-Backup" target="_blank" rel="noopener"><div><p class="pc-t">AKEBI-GC</p><p class="pc-s">C++ · Game runtime · Reverse engineering</p></div><span class="pc-chev" aria-hidden="true">›</span></a></li>
+            <li><a class="pc-work" href="https://github.com/Eienmode/Ananta-Lua-Dumper" target="_blank" rel="noopener"><div><p class="pc-t">Ananta-Lua-Dumper</p><p class="pc-s">Python · LuaJIT · Decompilation</p></div><span class="pc-chev" aria-hidden="true">›</span></a></li>
+            <li><a class="pc-work" href="https://github.com/Eienmode/CommandMenu" target="_blank" rel="noopener"><div><p class="pc-t">CommandMenu</p><p class="pc-s">C++ · CLI library</p></div><span class="pc-chev" aria-hidden="true">›</span></a></li>
+          </ul>
+        </section>
+
+        <div class="pc-col pc-side">
+          <section aria-labelledby="pc-stack-title">
+            <h4 class="pc-bar mono" id="pc-stack-title">Stack</h4>
+            <div class="pc-pad">
+              <p class="pc-sub mono">Languages</p>
+              <ul class="pc-tags"><li>C++</li><li>C#</li><li>C</li><li>TypeScript</li><li>Python</li><li>Rust</li></ul>
+              <p class="pc-sub mono">Technologies</p>
+              <ul class="pc-tags"><li>Unity</li><li>IDA / Ghidra</li><li>x64dbg</li><li>Cheat Engine</li><li>DirectX</li><li>React</li><li>Node.js</li><li>Git</li></ul>
+            </div>
+          </section>
+          <section aria-labelledby="pc-off-title">
+            <h4 class="pc-bar pc-bar--top mono" id="pc-off-title">Off the clock</h4>
+            <div class="pc-pad">
+              <ul class="pc-tags"><li>HYDRO MNL 2026</li><li>DWP Bali 2023</li><li>RUH 19-23</li><li>UAE 22-23</li><li>SK 17-19</li><li>SG 2014</li><li>MY 2014</li></ul>
+            </div>
+          </section>
         </div>
       </div>
-    </div>
+    </article>
   </div>
 </section>
 
@@ -1016,6 +1132,35 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       timer = setTimeout(() => { btn.classList.remove('is-done'); if (label) label.textContent = value; }, 1800);
     });
   });
+
+  /* ---------- About: live GitHub contribution calendar ---------- */
+  (function ghActivity() {
+    const box = document.querySelector('[data-gh-activity]');
+    if (!box) return;
+    const cal = box.querySelector('[data-gh-cal]');
+    const total = box.querySelector('[data-gh-total]');
+    const fail = () => { box.classList.add('is-failed'); total.textContent = 'View activity on GitHub'; };
+    fetch('https://github-contributions-api.jogruber.de/v4/Eienmode?y=last')
+      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(data => {
+        const days = (data && data.contributions) || [];
+        if (!days.length) return fail();
+        const lead = new Date(days[0].date + 'T00:00:00').getDay(); // pad so rows run Sun to Sat
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < lead; i++) { const e = document.createElement('i'); e.style.visibility = 'hidden'; frag.appendChild(e); }
+        days.forEach(d => {
+          const e = document.createElement('i');
+          e.dataset.l = d.level;
+          e.title = d.count + ' contribution' + (d.count === 1 ? '' : 's') + ' on ' + d.date;
+          frag.appendChild(e);
+        });
+        cal.appendChild(frag);
+        const n = data.total && data.total.lastYear != null ? data.total.lastYear : days.reduce((s, d) => s + d.count, 0);
+        total.innerHTML = '<b>' + n.toLocaleString() + '</b> contribution' + (n === 1 ? '' : 's') + ' in the last year';
+        cal.setAttribute('aria-label', n + ' GitHub contributions in the last year');
+      })
+      .catch(fail);
+  })();
 
   /* ---------- Work accordion ---------- */
   document.querySelectorAll('.work-head').forEach(head => {
