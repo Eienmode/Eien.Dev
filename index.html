@@ -187,10 +187,10 @@ section{position:relative}
 .sec-head{display:grid;grid-template-columns:1fr 3fr;gap:2rem;align-items:baseline;margin-bottom:clamp(3rem,7vw,5.5rem)}
 .sec-label{color:var(--mute);display:flex;gap:.75rem}
 .sec-label span{color:var(--ember)}
-/* Contact label sits over the sakura: give it a frosted pill so it always reads */
-.contact-label{display:inline-flex;align-items:center;margin:0 0 2rem;padding:.5rem 1rem;border-radius:999px;color:var(--bone);
-  background:rgba(12,12,13,.62);border:1px solid var(--line-2);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-@media (prefers-reduced-transparency:reduce){.contact-label{background:#0c0c0d;backdrop-filter:none}}
+/* Contact label: lifted to the top of the section, in the dark space above the sakura crowns
+   (left:auto keeps its normal horizontal position; the wrap is the positioned ancestor) */
+.contact-label{position:absolute;top:calc(-1 * clamp(7rem,15vw,12rem) + 1.5rem);margin:0;color:var(--bone);
+  text-shadow:0 0 12px #0c0c0d,0 0 4px #0c0c0d}
 .h2{margin:0;font-weight:500;font-size:clamp(2.3rem,5.6vw,5.25rem);line-height:1;letter-spacing:-.04em;max-width:16ch}
 .h2 .soft{color:var(--mute)}
 
