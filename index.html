@@ -406,11 +406,17 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .pc-tip span{color:var(--mute);display:block}
 .pc-tip.is-on{opacity:1}
 .pc-scale i{display:block;width:11px;height:11px;border-radius:22%}
-.pc-scale i[data-l="0"]{background:#232327}
-.pc-scale i[data-l="1"]{background:#a855f7}
-.pc-scale i[data-l="2"]{background:#d946ef}
-.pc-scale i[data-l="3"]{background:#ec4899}
-.pc-scale i[data-l="4"]{background:#ef4444}
+/* Legend = brightness, like the calendar (hue just drifts). Same hue cycle and intensity steps as the canvas. */
+@property --lg{syntax:'<color>';inherits:true;initial-value:#a855f7}
+.pc-scale{--lg:#a855f7;animation:lg-hue 6s linear infinite}
+@keyframes lg-hue{0%,100%{--lg:#a855f7}25%{--lg:#d946ef}50%{--lg:#ec4899}75%{--lg:#ef4444}}
+.pc-scale i[data-l="0"]{background:color-mix(in srgb,var(--lg) 14%,#18181c)}
+.pc-scale i[data-l="1"]{background:color-mix(in srgb,var(--lg) 42%,#18181c)}
+.pc-scale i[data-l="2"]{background:color-mix(in srgb,var(--lg) 62%,#18181c)}
+.pc-scale i[data-l="3"]{background:color-mix(in srgb,var(--lg) 82%,#18181c)}
+.pc-scale i[data-l="4"]{background:var(--lg)}
+.rm .pc-scale{animation:none;--lg:#d946ef}
+@media (prefers-reduced-motion:reduce){.pc-scale{animation:none;--lg:#d946ef}}
 .pc-cal-foot{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:0 1.1rem 1rem;color:var(--mute);text-transform:none}
 .pc-cal-foot a{text-decoration:none;transition:color 200ms ease}
 @media (hover:hover) and (pointer:fine){.pc-cal-foot a:hover{color:var(--ember)}}
