@@ -913,7 +913,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     for (var i = 0; i < ncol * nrow; i++) eye.chars.push(Math.random());
     eyeC.width = ncol * cell * dpr; eyeC.height = nrow * cell * dpr; eg.setTransform(dpr, 0, 0, dpr, 0, 0);
     cols = [];
-    for (var x = 8; x < R; x += 16) cols.push({ x: x, y: top + Math.random() * h, v: 0.45 + Math.random() * 0.6 });
+    for (var x = 8; x < W; x += 16) cols.push({ x: x, y: top + Math.random() * h, v: 0.45 + Math.random() * 0.6 });
     readAccent(); renderEye(); paint();
   }
 
@@ -984,44 +984,41 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // soft bloom: blur the quarter-res glow map once per render (not per frame)
     if (glowB.width !== glowC.width + 16) { glowB.width = glowC.width + 16; glowB.height = glowC.height + 16; }
     gb.clearRect(0, 0, glowB.width, glowB.height);
-    gb.filter = 'blur(5px)'; gb.drawImage(glowC, 8, 8); gb.globalCompositeOperation = 'lighter'; gb.drawImage(glowB, 0, 0); gb.globalCompositeOperation = 'source-over'; gb.filter = 'none';
+
   }
   var gw = 0, gh = 0, embers = [];
 
-  // ---- compose: rain, bloom, eye, embers; wide feathering so nothing looks pasted
+  // ---- compose: rain fills the area above the name and fades out where the waving dots begin
+  //      (so the dots stay on top), then the eye + embers on top. No glow.
   function paint() {
     if (!on || !tri) return;
     var t = tri;
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.save();
-    g.beginPath(); g.moveTo(0, t.top); g.lineTo(t.R, t.top); g.lineTo(0, t.bot); g.closePath(); g.clip();
+    g.beginPath(); g.rect(0, t.top, W, t.h); g.clip();
     g.globalAlpha = 0.55; g.drawImage(rainC, 0, 0, W, H);
-    if (eye) {
-      var ew = eye.cols * eye.cell, eh = eye.rows * eye.cell;
-      // bloom: the quarter-res glow map, blown up soft and added on top (cheap: the smoothing does the blur)
-      var pw = 8 * 4, k = 0.4 + 0.6 * eye.o;           // glowB has an 8px (quarter-res) margin = 32px at full size
-      g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true;
-      g.globalAlpha = 0.42 * k; g.drawImage(glowB, eye.x - pw, eye.y - pw, ew + pw * 2, eh + pw * 2);
-      g.globalAlpha = 0.24 * k; g.drawImage(glowB, eye.x - ew * 0.25 - pw, eye.y - eh * 0.3 - pw, ew * 1.5 + pw * 2, eh * 1.6 + pw * 2);
-      g.globalCompositeOperation = 'source-over';
-      g.globalAlpha = 0.9; g.drawImage(eyeC, eye.x, eye.y, ew, eh);
-      // embers drifting up from the eye
-      for (var i = 0; i < embers.length; i++) {
-        var e = embers[i]; g.globalAlpha = Math.max(0, e.l) * 0.9; g.fillStyle = e.c; g.fillRect(e.x, e.y, e.s, e.s);
-      }
-    }
     g.globalAlpha = 1;
     g.restore();
+    // masks (rain only): cut out the dot field, fade under the meta row, above the name and at the left edge
+    g.globalCompositeOperation = 'destination-out';
+    var fcx = W * 0.78, fcy = H * 0.84, fr = Math.max(W * 0.5, H * 0.75);
+    var cut = g.createRadialGradient(fcx, fcy, fr * 0.7, fcx, fcy, fr * 1.02);
+    cut.addColorStop(0, 'rgba(0,0,0,1)'); cut.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = cut; g.fillRect(0, 0, W, H);
     g.globalCompositeOperation = 'destination-in';
-    var len = Math.hypot(t.R, t.h), nx = t.h / len, ny = t.R / len, fx = (t.R * t.h * t.h) / (len * len), fy = t.top + (t.R * t.R * t.h) / (len * len);
-    var gr = g.createLinearGradient(fx - nx * 220, fy - ny * 220, fx, fy); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr; g.fillRect(0, 0, W, H);
-    var gt = g.createLinearGradient(0, t.top, 0, t.top + 60); gt.addColorStop(0, 'rgba(0,0,0,0)'); gt.addColorStop(1, 'rgba(0,0,0,1)');
+    var gt = g.createLinearGradient(0, t.top, 0, t.bot);
+    gt.addColorStop(0, 'rgba(0,0,0,0)'); gt.addColorStop(Math.min(0.4, 60 / t.h), 'rgba(0,0,0,1)');
+    gt.addColorStop(Math.max(0.6, 1 - 70 / t.h), 'rgba(0,0,0,1)'); gt.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = gt; g.fillRect(0, 0, W, H);
     var gl = g.createLinearGradient(0, 0, 60, 0); gl.addColorStop(0, 'rgba(0,0,0,0)'); gl.addColorStop(1, 'rgba(0,0,0,1)');
     g.fillStyle = gl; g.fillRect(0, 0, W, H);
     g.globalCompositeOperation = 'source-over';
+    if (eye) {
+      g.globalAlpha = 0.9; g.drawImage(eyeC, eye.x, eye.y, eye.cols * eye.cell, eye.rows * eye.cell);
+      for (var i = 0; i < embers.length; i++) { var e = embers[i]; g.globalAlpha = Math.max(0, e.l) * 0.9; g.fillStyle = e.c; g.fillRect(e.x, e.y, e.s, e.s); }
+      g.globalAlpha = 1;
+    }
   }
   function stepEmbers() {
     if (!eye) return;
@@ -1046,7 +1043,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     rg.font = '500 13px "Geist Mono", ui-monospace, monospace';
     var acc = 'rgb(' + accent.join(',') + ')';
     for (var i = 0; i < cols.length; i++) {
-      var c = cols[i], yMax = tri.top + tri.h * (1 - c.x / tri.R);
+      var c = cols[i], yMax = tri.bot;
       var r = Math.random(); rg.fillStyle = r < 0.07 ? '#ffffff' : r < 0.6 ? acc : '#4a4a52';
       rg.globalAlpha = r < 0.07 ? 0.9 : 0.6;
       rg.fillText(pick(RAIN), c.x, c.y);
