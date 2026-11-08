@@ -490,6 +490,10 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .readme h3 .alias b,.readme-roles b{display:inline-block;width:.2em;height:.2em;border-radius:50%;background:var(--ember);
   font-size:inherit;color:transparent;overflow:hidden;vertical-align:middle;margin:0 .06em;transform:translateY(-.05em)}
 .readme-roles b{width:.28em;height:.28em;margin:0 .22em}
+/* "Eien" <-> 永遠 code transition */
+.eien{display:inline-block;white-space:nowrap}
+.eien:lang(ja),.eien.is-ja{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic UI","Yu Gothic",var(--display);font-weight:500;letter-spacing:.04em}
+.eien .s{color:var(--ember);font-family:var(--mono);font-weight:400}
 .readme-co{margin:.8rem 0 0;color:var(--mute)}
 .readme-co span{color:var(--bone)}
 .readme-stats{display:grid;grid-template-columns:repeat(3,1fr);margin:2rem 0;border-block:1px solid var(--line)}
@@ -966,7 +970,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         <header class="readme-bar mono"><span><i></i><i></i><i></i></span><span>Eienmode / README.md</span><a href="https://github.com/Eienmode" target="_blank" rel="noopener">@Eienmode ↗</a></header>
         <div class="readme-body">
           <p class="readme-prompt mono"><span>$</span> whoami</p>
-          <h3>Jan Saquilayan <span class="alias"><b>·</b> Eien</span></h3>
+          <h3>Jan Saquilayan <span class="alias"><b>·</b> <span class="sr-only">Eien (永遠)</span><span class="eien" data-eien aria-hidden="true">Eien</span></span></h3>
           <p class="readme-roles">Software Engineer <b>·</b> Reverse Engineer <b>·</b> Game Hacking <b>·</b> Unity Game Dev</p>
           <p class="readme-co mono">Owner of <span>UNIA! LLC</span></p>
           <dl class="readme-stats">
@@ -1156,7 +1160,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         <div class="cc-id">
           <figure class="avatar"><img src="data:image/webp;base64,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" alt="Jan Saquilayan's GitHub avatar" width="200" height="200" decoding="async"><i class="online" aria-hidden="true"></i></figure>
           <div>
-            <h3>Jan Saquilayan <span class="alias"><b>·</b> Eien</span></h3>
+            <h3>Jan Saquilayan <span class="alias"><b>·</b> <span class="sr-only">Eien (永遠)</span><span class="eien" data-eien aria-hidden="true">Eien</span></span></h3>
             <p class="cc-handle mono">@Eienmode · Owner, UNIA! LLC</p>
           </div>
         </div>
@@ -2266,6 +2270,39 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   }, { rootMargin: '-45% 0px -50% 0px' });
   document.querySelectorAll('main section[id]').forEach(s => secIO.observe(s));
   cleanups.push(() => secIO.disconnect());
+
+  /* ---------- "Eien" <-> 永遠 (eternity): decodes through code characters on a loop ---------- */
+  (function eienSwap() {
+    const els = [...document.querySelectorAll('[data-eien]')];
+    if (!els.length) return;
+    const still = document.documentElement.classList.contains('rm') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const WORDS = ['Eien', '永遠'], POOL = '01<>/{}[]=#$%*+;:アイエンネ永遠ABCDEF';
+    const esc = (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c);
+    els.forEach(el => {
+      let w = 0, busy = false, seen = false;
+      new IntersectionObserver(([e]) => { seen = e.isIntersecting; }).observe(el);
+      const swap = () => {
+        if (busy || !seen || document.hidden) return;
+        busy = true;
+        const from = WORDS[w], to = WORDS[w = 1 - w], len = Math.max(from.length, to.length), dur = 750, t0 = performance.now();
+        const frame = (now) => {
+          const k = Math.min(1, (now - t0) / dur), done = Math.floor(k * (len + 1));
+          let html = '';
+          for (let i = 0; i < len; i++) {
+            if (i < done) html += esc(to[i] || '');
+            else html += '<span class="s">' + esc(POOL[(Math.random() * POOL.length) | 0]) + '</span>';
+          }
+          el.innerHTML = html;
+          if (k < 1) requestAnimationFrame(frame);
+          else { el.textContent = to; el.classList.toggle('is-ja', w === 1); busy = false; }
+        };
+        el.classList.remove('is-ja');
+        requestAnimationFrame(frame);
+      };
+      if (still) { el.textContent = 'Eien 永遠'; return; }
+      setTimeout(() => setInterval(swap, 4200), Math.random() * 1500); // the two cards drift out of sync
+    });
+  })();
 
   /* ---------- Repo showcase: bullet dots, wheel over the repos, auto-advance when idle ---------- */
   (function repoShowcase() {
