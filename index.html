@@ -515,6 +515,30 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .repo-desc{color:var(--mute);font-size:.95rem;line-height:1.45}
 .repo-meta{display:flex;gap:1.1rem;color:var(--mute);text-transform:none;margin-top:.2rem}
 .repo-meta i{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--c);margin-right:.45rem;vertical-align:-.05em}
+/* Repo showcase: sets of repos stacked in one grid cell (height = tallest set), bullet dots on the side */
+.repo-shell{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center}
+.repo-view{display:grid}
+.repo-page{display:grid;gap:1.25rem;align-content:start}
+.repo-shell.is-live .repo-page{grid-area:1/1;transition:opacity 380ms ease,transform 480ms var(--ease-out)}
+.repo-shell.is-live .repo-page:not(.is-on){opacity:0;transform:translateY(calc(var(--dir,1) * -18px));pointer-events:none;visibility:hidden;
+  transition:opacity 380ms ease,transform 480ms var(--ease-out),visibility 0s 480ms}
+.repo-shell.is-live .repo-page.is-on .repo{animation:repo-in 700ms var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 70ms + 60ms)}
+@keyframes repo-in{from{opacity:0;transform:translateY(calc(var(--dir,1) * 26px))}to{opacity:1;transform:none}}
+.repo--private{cursor:default}
+.repo-dots{display:none;flex-direction:column;align-items:center;gap:.55rem;padding:.6rem .25rem}
+.repo-shell.is-live .repo-dots{display:flex}
+.repo-dot{position:relative;width:8px;height:8px;padding:0;border:0;border-radius:8px;background:var(--line-2);cursor:pointer;overflow:hidden;
+  transition:height 500ms var(--ease-out),background-color 300ms ease}
+.repo-dot::before{content:"";position:absolute;inset:-8px -10px} /* bigger hit area */
+.repo-dot:hover{background:color-mix(in srgb,var(--ember) 45%,var(--line-2))}
+.repo-dot[aria-selected="true"]{height:44px;background:color-mix(in srgb,var(--ember) 28%,var(--line-2))}
+.repo-dot i{position:absolute;inset:0;background:var(--ember);transform-origin:top;transform:scaleY(0)}
+.repo-dot[aria-selected="true"] i{animation:repo-tick var(--auto,7000ms) linear forwards}
+.repo-shell.is-paused .repo-dot i{animation-play-state:paused}
+@keyframes repo-tick{to{transform:scaleY(1)}}
+.repo-dot:focus-visible{outline:2px solid var(--ember);outline-offset:4px}
+.rm .repo-shell.is-live .repo-page,.rm .repo-shell.is-live .repo-page.is-on .repo{transition:none;animation:none}
+.rm .repo-dot[aria-selected="true"] i{animation:none;transform:scaleY(1)}
 .repo--all{flex-direction:row;align-items:center;flex-wrap:wrap;border-style:dashed}
 .repo--all .repo-desc{flex:1;min-width:12rem}
 @media (max-width:1000px){.gh-grid{grid-template-columns:1fr}}
@@ -960,32 +984,79 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       </article>
 
       <div class="repos" data-stagger>
-        <a class="repo" href="https://github.com/Eienmode/Ananta-Lua-Dumper" target="_blank" rel="noopener">
-          <span class="repo-top"><span class="repo-name">Ananta-Lua-Dumper</span><span class="repo-arr" aria-hidden="true">↗</span></span>
-          <span class="repo-fork mono">Public</span>
-          <span class="repo-desc">Extracts and decompiles Ananta's packaged LuaJIT scripts into readable Lua.</span>
-          <span class="repo-meta mono"><span><i style="--c:#8f8b84"></i>Python</span><span aria-label="3 stars">★ 3</span><span aria-label="1 fork">⑂ 1</span></span>
-        </a>
-        <a class="repo" href="https://github.com/Eienmode/AFKJ-Tool" target="_blank" rel="noopener">
-          <span class="repo-top"><span class="repo-name">AFKJ-Tool</span><span class="repo-arr" aria-hidden="true">↗</span></span>
-          <span class="repo-fork mono">Public</span>
-          <span class="repo-desc">MelonLoader mod for debugging.</span>
-          <span class="repo-meta mono"><span><i style="--c:var(--ember-2)"></i>C#</span><span aria-label="4 stars">★ 4</span></span>
-        </a>
-        <a class="repo" href="https://github.com/Eienmode/CommandMenu" target="_blank" rel="noopener">
-          <span class="repo-top"><span class="repo-name">CommandMenu</span><span class="repo-arr" aria-hidden="true">↗</span></span>
-          <span class="repo-fork mono">Public</span>
-          <span class="repo-desc">A C++ library for creating command-line interface menus.</span>
-          <span class="repo-meta mono"><span><i style="--c:var(--ember)"></i>C++</span><span aria-label="8 stars">★ 8</span></span>
-        </a>
-        <a class="repo" href="https://github.com/Eienmode/Unity-SceneReference" target="_blank" rel="noopener">
-          <span class="repo-top"><span class="repo-name">Unity-SceneReference</span><span class="repo-arr" aria-hidden="true">↗</span></span>
-          <span class="repo-fork mono">Public</span>
-          <span class="repo-desc">Type-safe scene management for Unity, with automatic build settings management and scene enum generation.</span>
-          <span class="repo-meta mono"><span><i style="--c:var(--ember-2)"></i>C#</span><span aria-label="3 stars">★ 3</span><span>MIT License</span></span>
-        </a>
+        <div class="repo-shell" data-repos>
+          <div class="repo-view" data-repo-view aria-roledescription="carousel" aria-label="Featured repositories">
+          <div class="repo-page" data-repo-page role="group" aria-roledescription="slide" aria-label="Set 1 of 3">
+            <div class="repo repo--private">
+            <span class="repo-top"><span class="repo-name">UNIA-GC</span></span>
+            <span class="repo-fork mono">Private</span>
+            <span class="repo-desc">A project under UNIA! LLC for osu!.</span>
+            <span class="repo-meta mono"><span><i style="--c:var(--ember-2)"></i>C#</span></span>
+            </div>
+            <a class="repo" href="https://github.com/Eienmode/Ananta-Lua-Dumper" target="_blank" rel="noopener">
+            <span class="repo-top"><span class="repo-name">Ananta-Lua-Dumper</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+            <span class="repo-fork mono">Public</span>
+            <span class="repo-desc">Extracts and decompiles Ananta's packaged LuaJIT scripts into readable Lua.</span>
+            <span class="repo-meta mono"><span><i style="--c:#8f8b84"></i>Python</span><span aria-label="3 stars">★ 3</span><span aria-label="1 fork">⑂ 1</span></span>
+            </a>
+            <a class="repo" href="https://github.com/Eienmode/AFKJ-Tool" target="_blank" rel="noopener">
+            <span class="repo-top"><span class="repo-name">AFKJ-Tool</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+            <span class="repo-fork mono">Public</span>
+            <span class="repo-desc">MelonLoader mod for debugging.</span>
+            <span class="repo-meta mono"><span><i style="--c:var(--ember-2)"></i>C#</span><span aria-label="4 stars">★ 4</span></span>
+            </a>
+            <a class="repo" href="https://github.com/Eienmode/CommandMenu" target="_blank" rel="noopener">
+            <span class="repo-top"><span class="repo-name">CommandMenu</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+            <span class="repo-fork mono">Public</span>
+            <span class="repo-desc">A C++ library for creating command-line interface menus.</span>
+            <span class="repo-meta mono"><span><i style="--c:var(--ember)"></i>C++</span><span aria-label="8 stars">★ 8</span></span>
+            </a>
+          </div>
+          <div class="repo-page" data-repo-page role="group" aria-roledescription="slide" aria-label="Set 2 of 3">
+            <a class="repo" href="https://github.com/Eienmode/Unity-SceneReference" target="_blank" rel="noopener">
+            <span class="repo-top"><span class="repo-name">Unity-SceneReference</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+            <span class="repo-fork mono">Public</span>
+            <span class="repo-desc">Type-safe scene management for Unity, with automatic build settings management and scene enum generation.</span>
+            <span class="repo-meta mono"><span><i style="--c:var(--ember-2)"></i>C#</span><span aria-label="3 stars">★ 3</span><span>MIT License</span></span>
+            </a>
+            <a class="repo" href="https://github.com/Eienmode/NetInvoke" target="_blank" rel="noopener">
+            <span class="repo-top"><span class="repo-name">NetInvoke</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+            <span class="repo-fork mono">Public</span>
+            <span class="repo-desc">A simplified RPC system for .NET.</span>
+            <span class="repo-meta mono"><span><i style="--c:var(--ember-2)"></i>C#</span><span>MIT License</span></span>
+            </a>
+            <a class="repo" href="https://github.com/Eienmode/Starlight" target="_blank" rel="noopener">
+            <span class="repo-top"><span class="repo-name">Starlight</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+            <span class="repo-fork mono">Public · Forked from kitkat-multiverse/Starlight</span>
+            <span class="repo-desc">A server reimplementation for a very specific anime game.</span>
+            <span class="repo-meta mono"><span><i style="--c:var(--ember-2)"></i>C#</span><span>AGPL-3.0</span></span>
+            </a>
+          </div>
+          <div class="repo-page" data-repo-page role="group" aria-roledescription="slide" aria-label="Set 3 of 3">
+            <a class="repo" href="https://github.com/Eienmode/Complex-Command-Handler" target="_blank" rel="noopener">
+            <span class="repo-top"><span class="repo-name">Complex-Command-Handler</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+            <span class="repo-fork mono">Public</span>
+            <span class="repo-desc">A really useful and simple command handler for JDA.</span>
+            <span class="repo-meta mono"><span><i style="--c:#c9a27a"></i>Java</span><span aria-label="2 stars">★ 2</span></span>
+            </a>
+            <a class="repo" href="https://github.com/Grasscutters/Grasscutter" target="_blank" rel="noopener">
+            <span class="repo-top"><span class="repo-name">Grasscutters/Grasscutter</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+            <span class="repo-fork mono">Public</span>
+            <span class="repo-desc">A server software reimplementation for a certain anime game.</span>
+            <span class="repo-meta mono"><span><i style="--c:#c9a27a"></i>Java</span><span aria-label="16,800 stars">★ 16.8k</span><span aria-label="4,200 forks">⑂ 4.2k</span></span>
+            </a>
+            <a class="repo" href="https://github.com/Grasscutters/Cultivation" target="_blank" rel="noopener">
+            <span class="repo-top"><span class="repo-name">Grasscutters/Cultivation</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+            <span class="repo-fork mono">Public</span>
+            <span class="repo-desc">A custom launcher designed to make it as easy as possible to proxy anime game traffic to private servers.</span>
+            <span class="repo-meta mono"><span><i style="--c:var(--bone)"></i>TypeScript</span><span aria-label="1,200 stars">★ 1.2k</span><span aria-label="191 forks">⑂ 191</span></span>
+            </a>
+          </div>
+          </div>
+          <div class="repo-dots" data-repo-dots role="tablist" aria-label="Repository sets" aria-orientation="vertical"></div>
+        </div>
         <a class="repo repo--all" href="https://github.com/Eienmode?tab=repositories" target="_blank" rel="noopener">
-          <span class="repo-name">All 9 repositories</span>
+          <span class="repo-name">All repositories</span>
           <span class="repo-desc">Source, forks and experiments on GitHub.</span>
           <span class="repo-arr" aria-hidden="true">→</span>
         </a>
@@ -2155,6 +2226,65 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   }, { rootMargin: '-45% 0px -50% 0px' });
   document.querySelectorAll('main section[id]').forEach(s => secIO.observe(s));
   cleanups.push(() => secIO.disconnect());
+
+  /* ---------- Repo showcase: bullet dots, wheel over the repos, auto-advance when idle ---------- */
+  (function repoShowcase() {
+    const shell = document.querySelector('[data-repos]');
+    if (!shell) return;
+    const pages = [...shell.querySelectorAll('[data-repo-page]')], dotsWrap = shell.querySelector('[data-repo-dots]');
+    if (pages.length < 2) return;
+    const last = pages.length - 1;
+    let idx = 0, hover = false, focus = false, seen = false, lastWheel = 0, acc = 0, used = false;
+    pages.forEach(p => [...p.children].forEach((c, i) => c.style.setProperty('--i', i)));
+    const dots = pages.map((p, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'repo-dot'; b.setAttribute('role', 'tab');
+      b.setAttribute('aria-label', `Repository set ${i + 1} of ${pages.length}`);
+      b.appendChild(document.createElement('i'));
+      b.addEventListener('click', () => go(i));
+      b.querySelector('i').addEventListener('animationend', () => { if (i === idx) go(idx + 1, 1); }); // idle timer ran out
+      dotsWrap.appendChild(b);
+      return b;
+    });
+    const sync = () => shell.classList.toggle('is-paused', hover || focus || !seen || document.hidden);
+    function go(n, dir) {
+      const next = (n + pages.length) % pages.length;
+      shell.style.setProperty('--dir', dir || (next >= idx ? 1 : -1));
+      idx = next;
+      pages.forEach((p, i) => { const on = i === idx; p.classList.toggle('is-on', on); p.inert = !on; p.setAttribute('aria-hidden', String(!on)); });
+      dots.forEach((d, i) => { d.setAttribute('aria-selected', String(i === idx)); d.tabIndex = i === idx ? 0 : -1; });
+    }
+    shell.classList.add('is-live');
+    go(0, 1);
+
+    shell.addEventListener('pointerenter', () => { hover = true; sync(); });
+    shell.addEventListener('pointerleave', () => { hover = false; sync(); });
+    shell.addEventListener('focusin', () => { focus = true; sync(); });
+    shell.addEventListener('focusout', () => { focus = shell.contains(document.activeElement); sync(); });
+    document.addEventListener('visibilitychange', sync);
+    new IntersectionObserver(([e]) => { seen = e.isIntersecting; sync(); }, { threshold: 0.35 }).observe(shell);
+    sync();
+
+    // wheel / trackpad over the repos or the dots flips sets; past the first/last set the page scrolls on
+    shell.addEventListener('wheel', (e) => {
+      const dy = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : 0;
+      if (!dy) return;
+      const now = performance.now(), fresh = now - lastWheel > 220;
+      lastWheel = now;
+      if (fresh) { acc = 0; used = false; }
+      if (!used && ((dy < 0 && idx === 0) || (dy > 0 && idx === last))) return; // let the page scroll
+      e.preventDefault(); e.stopPropagation(); // keep Lenis from scrolling the page too
+      if (used) return;                          // one set per gesture (swallows trackpad momentum)
+      acc += dy;
+      if (Math.abs(acc) > 28) { go(idx + Math.sign(acc), Math.sign(acc)); used = true; }
+    }, { passive: false });
+
+    dotsWrap.addEventListener('keydown', (e) => {
+      const k = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (!k) return;
+      e.preventDefault(); go(idx + k, k); dots[idx].focus();
+    });
+  })();
 
   /* ---------- Floating scrollbar (native one is hidden so the page runs edge to edge) ---------- */
   (function floatBar() {
