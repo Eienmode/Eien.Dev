@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>eien.dev — Jan Saquilayan, Software Engineer</title>
+<meta name="description" content="Jan Saquilayan: software engineer, reverse engineer and Unity game developer. Owner of UNIA LLC.">
+<meta name="theme-color" content="#0c0c0d">
+<meta name="author" content="Jan Saquilayan">
+<link rel="canonical" href="https://eien.dev/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/portrait.jpg">
+<link rel="manifest" href="/site.webmanifest">
+<!-- Social share previews (Discord, LinkedIn, X, iMessage…) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="eien.dev">
+<meta property="og:url" content="https://eien.dev/">
+<meta property="og:title" content="Jan Saquilayan — Software Engineer">
+<meta property="og:description" content="Software engineer, reverse engineer and Unity game developer. Owner of UNIA LLC.">
+<meta property="og:image" content="https://eien.dev/assets/portrait.jpg">
+<meta property="og:image:alt" content="Portrait of Jan Saquilayan">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Jan Saquilayan — Software Engineer">
+<meta name="twitter:description" content="Software engineer, reverse engineer and Unity game developer. Owner of UNIA LLC.">
+<meta name="twitter:image" content="https://eien.dev/assets/portrait.jpg">
+<!--
+  Art direction: "Ember on ink". A dark, quiet page with one warm accent.
+  The hero runs a Three.js shader that renders a slow noise field through an
+  8x8 Bayer dither at low resolution — the way old game hardware faked tone.
+  Motion: GSAP 3 + ScrollTrigger, Lenis as the only smooth-scroll engine.
+
+  Asset provenance:
+  - No third-party images. The hero visual is generated live by the shader below.
+  - Portrait: assets/portrait.jpg (your own photo). If missing, the frame is removed.
+  - Fonts: Geist, Geist Mono (Vercel) — Google Fonts, SIL Open Font License.
+  - Libraries: GSAP (cdnjs), Lenis (unpkg), Three.js r128 (cdnjs).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  // Runs before paint: enables motion-only styles. Removed again if GSAP fails to load.
+  document.documentElement.classList.add('js');
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('rm');
+</script>
+<style>
+@property --ember{syntax:'<color>';inherits:true;initial-value:#d946ef}
+:root{
+  --ink:#0c0c0d;
+  --ink-2:#131315;
+  --ink-3:#1b1b1e;
+  --bone:#ece9e2;
+  --mute:#8f8b84;
+  --line:rgba(236,233,226,.12);
+  --line-2:rgba(236,233,226,.22);
+  --ember:#d946ef;
+  --ember-2:color-mix(in srgb,var(--ember) 55%,#ece9e2);
+
+  --ease-out:cubic-bezier(0.23,1,0.32,1);
+  --ease-in-out:cubic-bezier(0.77,0,0.175,1);
+  --ease-drawer:cubic-bezier(0.32,0.72,0,1);
+
+  --pad:clamp(1.25rem,4vw,3.5rem);
+  --max:1440px;
+  --display:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;color-scheme:dark;transition:--ember 1100ms cubic-bezier(0.77,0,0.175,1)}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+.lenis.lenis-stopped{overflow:hidden}
+body{
+  margin:0;background:var(--ink);color:var(--bone);
+  font:400 1.0625rem/1.6 var(--display);font-feature-settings:"ss01","cv11";
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+::selection{background:var(--ember);color:var(--ink)}
+a{color:inherit}
+img{display:block;max-width:100%}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ember);outline-offset:3px;border-radius:2px}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip{position:fixed;left:var(--pad);top:.75rem;z-index:100;background:var(--bone);color:var(--ink);padding:.6rem 1rem;font:500 .8rem var(--mono);transform:translateY(-200%);transition:transform 200ms var(--ease-out)}
+.skip:focus{transform:none}
+
+.mono{font-family:var(--mono);font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;font-weight:400}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--pad)}
+.dot{display:inline-block;width:.45em;height:.45em;border-radius:50%;background:var(--ember);vertical-align:.12em}
+
+/* ---------- Nav ---------- */
+.nav{
+  position:fixed;inset:0 0 auto 0;z-index:50;
+  transition:transform 400ms var(--ease-drawer);
+}
+.nav.is-hidden{transform:translateY(-100%)}
+.nav::before{ /* scroll-edge material: blur fades out instead of a hard border */
+  content:"";position:absolute;inset:0 0 -24px 0;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(12,12,13,.85),rgba(12,12,13,.55) 60%,rgba(12,12,13,0));
+  -webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);
+  -webkit-mask:linear-gradient(to bottom,#000 60%,transparent);mask:linear-gradient(to bottom,#000 60%,transparent);
+  opacity:0;transition:opacity 300ms ease;
+}
+.nav.is-scrolled::before{opacity:1}
+.nav-inner{position:relative;padding-top:env(safe-area-inset-top);display:flex;align-items:center;justify-content:space-between;gap:1rem;height:calc(4.25rem + env(safe-area-inset-top))}
+.brand{display:flex;align-items:baseline;gap:.6rem;text-decoration:none;font-weight:600;letter-spacing:-.01em;font-size:1rem}
+.brand .mono{color:var(--mute)}
+.brand-dot{color:var(--ember)}
+.nav-links{display:flex;gap:.25rem;list-style:none;margin:0;padding:0}
+.nav-links a{
+  display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .8rem;border-radius:999px;
+  text-decoration:none;font-size:.9rem;color:var(--mute);transition:color 200ms ease,background-color 200ms ease;
+}
+.nav-links a span{font-family:var(--mono);font-size:.65rem;color:var(--ember)}
+@media (hover:hover) and (pointer:fine){.nav-links a:hover{color:var(--bone);background:rgba(236,233,226,.06)}}
+.nav-links a.is-active{color:var(--bone)}
+.nav-meta{display:flex;align-items:center;gap:1.25rem;color:var(--mute)}
+.clock{font-variant-numeric:tabular-nums}
+.status{display:inline-flex;align-items:center;gap:.5rem;color:var(--bone)}
+.status .dot{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.menu-btn{display:none;background:none;border:1px solid var(--line-2);border-radius:999px;padding:.5rem .9rem;cursor:pointer;transition:transform 160ms var(--ease-out)}
+.menu-btn:active{transform:scale(.97)}
+
+.sheet{
+  position:fixed;inset:0;z-index:60;background:var(--ink);display:flex;flex-direction:column;
+  padding:1rem var(--pad) 2rem;transform:translateY(-100%);visibility:hidden;
+  transition:transform 450ms var(--ease-drawer),visibility 0s linear 450ms;
+}
+.sheet.is-open{transform:none;visibility:visible;transition:transform 450ms var(--ease-drawer),visibility 0s}
+.sheet-top{display:flex;justify-content:space-between;align-items:center;height:3.25rem}
+.sheet ol{list-style:none;margin:auto 0 0;padding:0;counter-reset:s}
+.sheet li{border-top:1px solid var(--line)}
+.sheet li a{display:flex;justify-content:space-between;align-items:baseline;padding:1rem 0;text-decoration:none;font-size:clamp(2rem,9vw,3rem);font-weight:500;letter-spacing:-.03em;line-height:1}
+.sheet li a span{font-family:var(--mono);font-size:.75rem;color:var(--ember);letter-spacing:0}
+.sheet-foot{margin-top:2rem;color:var(--mute);display:flex;justify-content:space-between}
+
+/* ---------- Hero ---------- */
+.hero{position:relative;min-height:100svh;display:flex;flex-direction:column;overflow:hidden;isolation:isolate}
+.hero-visual{
+  position:absolute;inset:0;z-index:-1;
+  /* static poster: shown under reduced motion / no WebGL / before first frame */
+  background:
+    radial-gradient(60% 55% at 85% 90%,color-mix(in srgb,var(--ember) 24%,transparent),transparent 70%),
+    radial-gradient(40% 40% at 65% 75%,color-mix(in srgb,var(--ember) 11%,transparent),transparent 70%),
+    var(--ink);
+}
+.hero-visual canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:0;transition:opacity 1.2s ease}
+.hero-visual canvas.is-live{opacity:1}
+.hero-visual::after{ /* keeps the name legible over the field */
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(to bottom,rgba(12,12,13,.55),rgba(12,12,13,0) 30%,rgba(12,12,13,0) 70%,rgba(12,12,13,.7));
+}
+.hero-top{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;padding-top:6.5rem;color:var(--mute)}
+.hero-top b{display:block;color:var(--bone);font-weight:400}
+.hero-name{
+  margin:auto 0 0;padding-top:3rem;
+  font-weight:600;font-size:clamp(2.4rem,13.4vw,14rem);line-height:.88;letter-spacing:-.05em;
+}
+.hero-name .line{display:block}
+.hero-name .line:last-child{padding-left:.06em}
+.hero-name .ember{color:var(--ember)}
+.hero-bottom{display:grid;grid-template-columns:1.1fr 1fr auto;gap:2rem;align-items:end;padding:2.25rem 0 2rem;border-top:1px solid var(--line);margin-top:2rem}
+.hero-lede{max-width:34ch;font-size:clamp(1.05rem,1.4vw,1.3rem);line-height:1.45;letter-spacing:-.01em;margin:0}
+.hero-lede em{font-style:normal;color:var(--ember)}
+.cta-row{display:flex;flex-wrap:wrap;gap:.75rem}
+.scroll-cue{display:flex;align-items:center;gap:.6rem;color:var(--mute)}
+.scroll-cue i{display:block;width:1px;height:2.5rem;background:linear-gradient(var(--bone),transparent);transform-origin:top;animation:cue 2.2s var(--ease-in-out) infinite}
+@keyframes cue{0%{transform:scaleY(0)}50%{transform:scaleY(1);transform-origin:top}50.01%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* ---------- Buttons ---------- */
+.btn{
+  --bg:var(--bone);--fg:var(--ink);
+  position:relative;display:inline-flex;align-items:center;gap:.6rem;
+  padding:.95rem 1.4rem;border-radius:999px;border:1px solid transparent;
+  background:var(--bg);color:var(--fg);text-decoration:none;font-weight:500;font-size:.95rem;letter-spacing:-.005em;
+  cursor:pointer;overflow:hidden;isolation:isolate;
+  transition:transform 160ms var(--ease-out),color 250ms ease;
+  will-change:transform;
+}
+.btn::before{ /* fill wipes in from the left on hover */
+  content:"";position:absolute;inset:0;z-index:-1;background:var(--ember);
+  clip-path:inset(0 100% 0 0);transition:clip-path 350ms var(--ease-out);
+}
+.btn:active{transform:scale(.97)}
+.btn .arr{transition:transform 250ms var(--ease-out)}
+.btn--ghost{--bg:transparent;--fg:var(--bone);border-color:var(--line-2)}
+@media (hover:hover) and (pointer:fine){
+  .btn:hover::before{clip-path:inset(0 0 0 0)}
+  .btn:hover{color:var(--ink)}
+  .btn:hover .arr{transform:translateX(3px)}
+}
+
+/* ---------- Sections ---------- */
+section{position:relative}
+.sec{padding:clamp(6rem,14vw,11rem) 0}
+.sec-head{display:grid;grid-template-columns:1fr 3fr;gap:2rem;align-items:baseline;margin-bottom:clamp(3rem,7vw,5.5rem)}
+.sec-label{color:var(--mute);display:flex;gap:.75rem}
+.sec-label span{color:var(--ember)}
+.h2{margin:0;font-weight:500;font-size:clamp(2.3rem,5.6vw,5.25rem);line-height:1;letter-spacing:-.04em;max-width:16ch}
+.h2 .soft{color:var(--mute)}
+
+/* split words */
+.split-words .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.09em;margin-bottom:-.09em}
+.split-words .w>span{display:inline-block;will-change:transform}
+
+/* ---------- Ticker (scroll-reactive) ---------- */
+.ticker{position:relative;overflow:hidden;padding:clamp(2.5rem,5vw,4rem) 0;border-bottom:1px solid var(--line);background:var(--ink)}
+.tk-row{overflow:hidden;white-space:nowrap}
+.tk-row+.tk-row{margin-top:clamp(.25rem,1vw,.75rem)}
+.tk-track{display:flex;width:max-content;will-change:transform}
+.tk-group{display:flex;align-items:center;flex-shrink:0}
+.tk-item{
+  font-family:var(--mono);font-weight:500;font-size:clamp(2.3rem,6.6vw,6.2rem);line-height:1.05;letter-spacing:-.045em;
+  padding:0 clamp(1rem,2.4vw,2.25rem);color:var(--bone);
+}
+.tk-item sup{font-family:var(--mono);font-size:.68rem;font-weight:400;letter-spacing:.02em;color:var(--mute);vertical-align:top;position:relative;top:.6em;margin-left:.5rem}
+.tk-item.is-top{color:var(--ember)}
+.tk-item.is-top sup{color:var(--ember)}
+.tk-outline{color:transparent;-webkit-text-stroke:1px rgba(236,233,226,.42);font-weight:500}
+.tk-sep{font-family:var(--mono);font-size:clamp(1.2rem,2.5vw,2rem);color:var(--line-2)}
+.tk-star{color:var(--ember);font-family:var(--display);font-size:clamp(1rem,2vw,1.6rem)}
+.tk-label{position:absolute;right:var(--pad);bottom:1rem;color:var(--mute);text-transform:none}
+.tk-label b{color:var(--ember);font-weight:400;margin-right:.35rem}
+.caret{display:inline-block;width:.55em;height:1em;background:var(--ember);margin-left:.35rem;vertical-align:-.15em;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+/* hacker glitch */
+.tk-word{position:relative;display:inline-block}
+.tk-word .g{color:var(--ember);-webkit-text-stroke:0;opacity:.85}
+.tk-word::before,.tk-word::after{content:attr(data-text);position:absolute;inset:0;pointer-events:none;opacity:0}
+.is-glitch .tk-word::before{opacity:1;color:var(--ember);animation:glitchA 320ms steps(1) both}
+.is-glitch .tk-word::after{opacity:1;color:#c4b5fd;mix-blend-mode:screen;animation:glitchB 320ms steps(1) both}
+.tk-outline .tk-word::before,.tk-outline .tk-word::after{color:transparent}
+.is-glitch.tk-outline .tk-word::before{-webkit-text-stroke-color:var(--ember)}
+.is-glitch.tk-outline .tk-word::after{-webkit-text-stroke-color:#c4b5fd}
+@keyframes glitchA{
+  0%{clip-path:inset(10% 0 62% 0);transform:translate(-.05em,0)}
+  25%{clip-path:inset(55% 0 20% 0);transform:translate(.06em,0)}
+  50%{clip-path:inset(30% 0 45% 0);transform:translate(-.03em,0)}
+  75%{clip-path:inset(75% 0 5% 0);transform:translate(.04em,0)}
+  100%{clip-path:inset(0 0 100% 0);transform:none}
+}
+@keyframes glitchB{
+  0%{clip-path:inset(60% 0 15% 0);transform:translate(.05em,0)}
+  25%{clip-path:inset(15% 0 70% 0);transform:translate(-.06em,0)}
+  50%{clip-path:inset(40% 0 35% 0);transform:translate(.03em,0)}
+  75%{clip-path:inset(5% 0 80% 0);transform:translate(-.04em,0)}
+  100%{clip-path:inset(0 0 100% 0);transform:none}
+}
+.is-glitch{animation:jolt 320ms steps(1)}
+@keyframes jolt{0%{transform:translateX(0)}20%{transform:translateX(-2px)}40%{transform:translateX(3px)}60%{transform:translateX(-1px)}80%{transform:translateX(1px)}}
+@media (max-width:700px){.tk-label{position:static;display:block;padding:1.25rem var(--pad) 0;text-align:right}}
+@media (prefers-contrast:more){.tk-outline{color:var(--bone);-webkit-text-stroke:0}}
+
+/* ---------- About ---------- */
+.about-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2.2fr);gap:clamp(2rem,6vw,6rem);align-items:start}
+.about-grid.no-photo{grid-template-columns:1fr 3fr;gap:2rem}
+.about-grid.no-photo>div{grid-column:2}
+.portrait{margin:0;position:sticky;top:6rem}
+.portrait .frame{aspect-ratio:4/5;overflow:hidden;border-radius:4px;background:var(--ink-2)}
+.portrait img{width:100%;height:100%;object-fit:cover;object-position:50% 30%;filter:grayscale(1) contrast(1.05);transition:filter 600ms ease}
+@media (hover:hover) and (pointer:fine){.portrait:hover img{filter:grayscale(0)}}
+.portrait figcaption{margin-top:.8rem;color:var(--mute);display:flex;justify-content:space-between}
+.about-aside{color:var(--mute)}
+.about-aside dl{margin:0;display:grid;gap:1.25rem}
+.about-aside dt{color:var(--mute);margin-bottom:.25rem}
+.about-aside dd{margin:0;color:var(--bone);font-size:1rem;line-height:1.45}
+.statement{margin:0;font-weight:400;font-size:clamp(1.6rem,3.3vw,3rem);line-height:1.18;letter-spacing:-.03em}
+.statement .lit{color:var(--bone)}
+.statement .ember{color:var(--ember)}
+.now{margin-top:clamp(3rem,6vw,5rem);display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line)}
+.now div{padding:1.4rem 1.4rem 0 0}
+.now div+div{padding-left:1.4rem;border-left:1px solid var(--line)}
+.now .mono{color:var(--mute);display:block;margin-bottom:.6rem}
+.now p{margin:0;font-size:1rem;line-height:1.45}
+
+/* ---------- Disciplines ---------- */
+.disc{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.disc li{position:relative;border-bottom:1px solid var(--line);isolation:isolate}
+.disc li::before{
+  content:"";position:absolute;inset:0;z-index:-1;background:var(--ember);
+  clip-path:inset(0 100% 0 0);transition:clip-path 450ms var(--ease-out);
+}
+.disc-row{display:grid;grid-template-columns:4rem minmax(0,1.3fr) minmax(0,1fr) minmax(0,.9fr);gap:1.5rem;align-items:baseline;padding:1.6rem 0;transition:color 300ms ease,padding 450ms var(--ease-out)}
+.disc-row .idx{color:var(--mute);transition:color 300ms ease}
+.disc-row h3{margin:0;font-weight:500;font-size:clamp(1.6rem,3.4vw,3rem);letter-spacing:-.04em;line-height:1}
+.disc-row p{margin:0;color:var(--mute);font-size:.98rem;line-height:1.45;transition:color 300ms ease}
+.disc-row .tags{color:var(--mute);text-align:right;transition:color 300ms ease}
+@media (hover:hover) and (pointer:fine){
+  .disc li:hover::before{clip-path:inset(0 0 0 0)}
+  .disc li:hover .disc-row{color:var(--ink);padding-inline:1.25rem}
+  .disc li:hover .disc-row :is(.idx,p,.tags){color:rgba(12,12,13,.72)}
+}
+
+/* ---------- Work ---------- */
+.work{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.work>li{border-bottom:1px solid var(--line)}
+.work-head{
+  width:100%;display:grid;grid-template-columns:4rem minmax(0,2fr) minmax(0,1fr) 6rem 2.5rem;gap:1.5rem;align-items:center;
+  padding:2rem 0;background:none;border:0;text-align:left;cursor:pointer;
+}
+.work-head .idx{color:var(--mute)}
+.work-title{font-weight:600;letter-spacing:-.03em!important;font-size:clamp(1.9rem,4.6vw,4.25rem);letter-spacing:-.045em;line-height:.95;transition:transform 450ms var(--ease-out),color 250ms ease}
+.work-kind{color:var(--mute)}
+.work-year{color:var(--mute);text-align:right;font-variant-numeric:tabular-nums}
+.plus{position:relative;width:2.5rem;height:2.5rem;border:1px solid var(--line-2);border-radius:50%;justify-self:end;transition:transform 300ms var(--ease-out),background-color 250ms ease,border-color 250ms ease}
+.plus::before,.plus::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:1px;background:currentColor;transform:translate(-50%,-50%)}
+.plus::after{transform:translate(-50%,-50%) rotate(90deg);transition:transform 300ms var(--ease-out)}
+.work>li.is-open .plus{background:var(--ember);border-color:var(--ember);color:var(--ink)}
+.work>li.is-open .plus::after{transform:translate(-50%,-50%) rotate(0deg)}
+.work-head:active .plus{transform:scale(.94)}
+@media (hover:hover) and (pointer:fine){
+  .work-head:hover .work-title{transform:translateX(.6rem);color:var(--ember)}
+  .work-head:hover .plus{border-color:var(--bone)}
+}
+.work-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows 450ms var(--ease-out)}
+.work>li.is-open .work-body{grid-template-rows:1fr}
+.work-body>div{overflow:hidden}
+.work-detail{display:grid;grid-template-columns:4rem minmax(0,2fr) minmax(0,1fr) 8.5rem;gap:1.5rem;padding:0 0 2.5rem;opacity:0;transform:translateY(-6px);transition:opacity 300ms ease,transform 400ms var(--ease-out)}
+.work>li.is-open .work-detail{opacity:1;transform:none;transition-delay:80ms}
+.work-detail p{margin:0;font-size:1.05rem;line-height:1.55;max-width:52ch}
+.work-link{margin-top:1.25rem;padding:.7rem 1.1rem;font-size:.85rem}
+.work-detail ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.4rem;align-content:flex-start}
+.chip{display:inline-block;padding:.35rem .7rem;border:1px solid var(--line-2);border-radius:999px;font-family:var(--mono);font-size:.7rem;letter-spacing:.03em;color:var(--bone)}
+.work-detail .status-tag{color:var(--ember)}
+.work-more{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:2.5rem;color:var(--mute);flex-wrap:wrap}
+
+/* ---------- Stack ---------- */
+.stack-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line)}
+.stack-col{padding:1.6rem 1.5rem 2rem 0}
+.stack-col+.stack-col{padding-left:1.5rem;border-left:1px solid var(--line)}
+.stack-col h3{margin:0 0 1.4rem;color:var(--mute);display:flex;justify-content:space-between}
+.stack-col h3 span{color:var(--ember)}
+.stack-col ul{list-style:none;margin:0;padding:0}
+.stack-col li{display:flex;justify-content:space-between;align-items:baseline;padding:.55rem 0;border-bottom:1px dashed var(--line);font-size:1.05rem;letter-spacing:-.01em}
+.stack-col li small{font-family:var(--mono);font-size:.68rem;color:var(--mute);letter-spacing:.03em;text-transform:uppercase}
+.stack-col li.core{font-weight:600}
+.stack-col li.core small{color:var(--ember)}
+.legend{display:flex;gap:1.5rem;color:var(--mute);margin-top:1.5rem}
+
+/* ---------- Contact ---------- */
+.contact{padding:clamp(7rem,15vw,12rem) 0 4rem;border-top:1px solid var(--line);overflow:hidden}
+.contact .h2{max-width:13ch;font-size:clamp(2.8rem,8vw,8.5rem);line-height:.92}
+.mail{
+  display:inline-flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:clamp(2.5rem,5vw,4rem);
+}
+.mail a{font-size:clamp(1.3rem,3.2vw,2.6rem);letter-spacing:-.03em;text-decoration:none;background:linear-gradient(var(--ember),var(--ember)) 0 100%/0 2px no-repeat;transition:background-size 450ms var(--ease-out);padding-bottom:.1em;overflow-wrap:anywhere}
+@media (hover:hover) and (pointer:fine){.mail a:hover{background-size:100% 2px}}
+.copy{position:relative;display:inline-grid;place-items:center;padding:.6rem 1rem;border-radius:999px;border:1px solid var(--line-2);background:none;cursor:pointer;font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;transition:transform 160ms var(--ease-out),background-color 200ms ease,color 200ms ease,border-color 200ms ease}
+.copy>span{grid-area:1/1;transition:opacity 200ms ease,filter 200ms ease,transform 250ms var(--ease-out)}
+.copy .done{opacity:0;filter:blur(2px);transform:translateY(4px)}
+.copy.is-done{background:var(--ember);border-color:var(--ember);color:var(--ink)}
+.copy.is-done .idle{opacity:0;filter:blur(2px);transform:translateY(-4px)}
+.copy.is-done .done{opacity:1;filter:none;transform:none}
+.copy:active{transform:scale(.96)}
+.socials{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:clamp(4rem,8vw,6rem);border-top:1px solid var(--line)}
+.socials>*{display:flex;flex-direction:column;gap:.35rem;padding:1.4rem 1.25rem 1.4rem 0;text-decoration:none;border:0;background:none;text-align:left;cursor:pointer;font-size:1.05rem}
+.socials>*+*{padding-left:1.25rem;border-left:1px solid var(--line)}
+.socials .mono{color:var(--mute);display:flex;justify-content:space-between}
+.socials .mono i{font-style:normal;color:var(--ember);transition:transform 250ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.socials>*:hover .mono i{transform:translate(2px,-2px)}}
+.socials>*:active{opacity:.7}
+
+footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
+.foot{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.foot a{text-decoration:none;color:var(--bone)}
+
+/* toast for copy feedback (screen readers) */
+.live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- Motion initial states (only when JS + motion) ---------- */
+.js:not(.rm) .hero-name{visibility:hidden}
+.js:not(.rm) [data-reveal]{opacity:0}
+
+/* ---------- GitHub language bar ---------- */
+.gh{margin:0 0 clamp(3.5rem,7vw,5.5rem)}
+.gh-cap{display:flex;justify-content:space-between;gap:1rem;color:var(--mute);margin-bottom:1rem;flex-wrap:wrap}
+.gh-cap b{color:var(--ember);font-weight:500}
+.gh-bar{display:flex;gap:3px;height:14px}
+.gh-bar i{flex:var(--w) 0 0;min-width:4px;background:var(--c);border-radius:2px;transform-origin:left center}
+.gh-legend{list-style:none;margin:1.5rem 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:2rem}
+.gh-legend li{display:grid;grid-template-columns:auto 1fr auto auto;align-items:baseline;gap:.7rem;padding:.7rem 0;border-bottom:1px dashed var(--line)}
+.gh-legend li>i{width:.6rem;height:.6rem;border-radius:2px;background:var(--c);align-self:center}
+.gh-legend b{font-weight:500;font-variant-numeric:tabular-nums}
+.gh-legend small{font-family:var(--mono);font-size:.68rem;color:var(--mute);min-width:4.2rem;text-align:right}
+@media (max-width:1000px){.gh-legend{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.gh-legend{grid-template-columns:1fr}}
+
+/* ---------- GitHub section ---------- */
+.gh-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:1.25rem;align-items:start}
+.readme{border:1px solid var(--line-2);border-radius:10px;background:var(--ink-2);overflow:hidden}
+.readme-bar{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1.1rem;border-bottom:1px solid var(--line);color:var(--mute);background:var(--ink-3)}
+.readme-bar>span:first-child{display:flex;gap:6px}
+.readme-bar>span:first-child i{width:9px;height:9px;border-radius:50%;background:var(--line-2)}
+.readme-bar>span:first-child i:first-child{background:var(--ember)}
+.readme-bar a{text-decoration:none;color:var(--bone);transition:color 200ms ease}
+@media (hover:hover) and (pointer:fine){.readme-bar a:hover{color:var(--ember)}}
+.readme-body{padding:clamp(1.4rem,3vw,2.4rem)}
+.readme-prompt{color:var(--mute);margin:0 0 1rem;text-transform:none}
+.readme-prompt span{color:var(--ember);margin-right:.4rem}
+.readme h3{margin:0;font-weight:600;font-size:clamp(1.8rem,3.4vw,2.8rem);letter-spacing:-.04em;line-height:1}
+.readme h3 .alias{white-space:nowrap;color:var(--mute);font-weight:500}
+.readme h3 .alias b{color:var(--ember);font-weight:500}
+.readme-roles{margin:.9rem 0 0;font-size:1.05rem;line-height:1.5;color:var(--bone)}
+.readme-roles b{color:var(--ember);font-weight:400;margin:0 .15rem}
+.readme-co{margin:.8rem 0 0;color:var(--mute)}
+.readme-co span{color:var(--bone)}
+.readme-stats{display:grid;grid-template-columns:repeat(3,1fr);margin:2rem 0;border-block:1px solid var(--line)}
+.readme-stats div{padding:1rem 0}
+.readme-stats div+div{padding-left:1rem;border-left:1px solid var(--line)}
+.readme-stats dt{color:var(--mute);margin-bottom:.35rem}
+.readme-stats dd{margin:0;font-size:clamp(1.6rem,2.6vw,2.2rem);font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.readme{container-type:inline-size}
+.readme .gh-legend{grid-template-columns:1fr 1fr;column-gap:1.5rem}
+@container (max-width:640px){.readme .gh-legend small{display:none}.readme .gh-legend li{grid-template-columns:auto 1fr auto}}
+@container (max-width:360px){.readme .gh-legend{grid-template-columns:1fr}}
+.repos{display:grid;grid-template-columns:1fr;gap:1.25rem}
+.repo{
+  position:relative;display:flex;flex-direction:column;gap:.55rem;padding:1.3rem 1.4rem;border:1px solid var(--line-2);border-radius:10px;
+  text-decoration:none;background:var(--ink);transition:border-color 250ms ease,background-color 250ms ease,transform 250ms var(--ease-out);
+}
+.repo:active{transform:scale(.985)}
+@media (hover:hover) and (pointer:fine){
+  .repo:hover{border-color:var(--ember);background:var(--ink-2);transform:translateY(-2px)}
+  .repo:hover .repo-arr{color:var(--ember);transform:translate(2px,-2px)}
+}
+.repo-top{display:flex;justify-content:space-between;align-items:baseline;gap:1rem}
+.repo-name{font-weight:600;font-size:1.1rem;letter-spacing:-.01em;overflow-wrap:anywhere}
+.repo-arr{color:var(--mute);transition:transform 250ms var(--ease-out),color 200ms ease}
+.repo-fork{color:var(--mute);text-transform:none;font-size:.7rem}
+.repo-desc{color:var(--mute);font-size:.95rem;line-height:1.45}
+.repo-meta{display:flex;gap:1.1rem;color:var(--mute);text-transform:none;margin-top:.2rem}
+.repo-meta i{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--c);margin-right:.45rem;vertical-align:-.05em}
+.repo--all{flex-direction:row;align-items:center;flex-wrap:wrap;border-style:dashed}
+.repo--all .repo-desc{flex:1;min-width:12rem}
+@media (max-width:1000px){.gh-grid{grid-template-columns:1fr}}
+@media (max-width:560px){.readme .gh-legend{grid-template-columns:1fr}.readme-stats dd{font-size:1.4rem}}
+
+/* ---------- Contact card ---------- */
+.contact-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,32rem);gap:clamp(2.5rem,6vw,6rem);align-items:end}
+.contact-lede{margin:1.8rem 0 0;max-width:34ch;color:var(--mute);font-size:clamp(1.05rem,1.4vw,1.25rem);line-height:1.45}
+.contact-card h3{margin:0;font-weight:600;font-size:clamp(1.45rem,2.4vw,2rem);letter-spacing:-.035em;line-height:1.05}
+.cc-id{display:flex;align-items:center;gap:1.1rem}
+.avatar{margin:0;position:relative;flex:none;width:clamp(68px,7vw,88px);aspect-ratio:1;border-radius:50%;padding:2px;
+  background:conic-gradient(from 210deg,var(--ember),var(--ember-2),var(--ember))}
+.avatar img{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid var(--ink-2);filter:grayscale(1) contrast(1.05);transition:filter 500ms ease}
+@media (hover:hover) and (pointer:fine){.contact-card:hover .avatar img{filter:none}}
+.avatar .online{position:absolute;right:3%;bottom:3%;width:14px;height:14px;border-radius:50%;background:var(--ember);border:3px solid var(--ink-2)}
+.cc-handle{margin:.45rem 0 0;color:var(--mute);text-transform:none}
+.cc-status{margin:1.6rem 0 0;color:var(--bone);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.cc-status .dot{animation:pulse 2.4s ease-in-out infinite}
+.cc-sep{color:var(--mute)}
+.cc-status [data-clock]{font-variant-numeric:tabular-nums}
+.cc-label{color:var(--mute)}
+.cc-mail{margin-top:1.4rem;padding:1.2rem 0 1.3rem;border-block:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;gap:.7rem 1rem}
+.cc-mail .cc-label{flex-basis:100%}
+.cc-mail a{flex:1 1 auto;min-width:0;font-size:clamp(1.05rem,1.8vw,1.4rem);letter-spacing:-.02em;text-decoration:none;overflow-wrap:anywhere;
+  background:linear-gradient(var(--ember),var(--ember)) 0 100%/0 2px no-repeat;transition:background-size 450ms var(--ease-out);padding-bottom:.1em}
+@media (hover:hover) and (pointer:fine){.cc-mail a:hover{background-size:100% 2px}}
+.cc-links{list-style:none;margin:0;padding:0}
+.cc-links li{border-bottom:1px dashed var(--line)}
+.cc-links :is(a,button,.cc-row){display:grid;grid-template-columns:8.5rem minmax(0,1fr) 1.25rem;align-items:baseline;gap:1rem;width:100%;
+  padding:.95rem 0;background:none;border:0;text-align:left;text-decoration:none;font-size:1rem;color:var(--bone)}
+.cc-links :is(a,button){cursor:pointer;transition:opacity 150ms ease}
+.cc-links :is(a,button):active{opacity:.7}
+.cc-val{overflow-wrap:anywhere;transition:transform 300ms var(--ease-out),color 200ms ease}
+.cc-ic{font-style:normal;color:var(--ember);text-align:right;transition:transform 250ms var(--ease-out)}
+.cc-links .is-done .cc-val{color:var(--ember)}
+@media (hover:hover) and (pointer:fine){
+  .cc-links :is(a,button):hover .cc-val{transform:translateX(4px)}
+  .cc-links :is(a,button):hover .cc-ic{transform:translate(2px,-2px)}
+}
+@media (max-width:1000px){.contact-grid{grid-template-columns:1fr;align-items:start}.contact-card{max-width:36rem}}
+@container (max-width:460px){.readme-bar>span:nth-child(2){display:none}.readme-bar{justify-content:space-between}}
+@container (max-width:380px){.cc-links :is(a,button,.cc-row){grid-template-columns:1fr 1.25rem;row-gap:.2rem}.cc-links .cc-label{grid-column:1/-1}.cc-links .cc-val{grid-column:1}}
+
+/* ---------- Hover scramble ---------- */
+.hw{display:inline-block;white-space:nowrap}
+.hc{display:inline-block;text-align:center}
+.hc.on{color:var(--ember);-webkit-text-stroke:0}
+.hero-name .hc,.hero-lede .hc,.tk-word .hc,.egg-en .hc,.egg-zh .hc{cursor:crosshair}
+
+/* ---------- Easter egg ---------- */
+.pull{position:fixed;left:50%;bottom:calc(1.25rem + env(safe-area-inset-bottom));z-index:40;display:flex;gap:.7rem;align-items:center;
+  padding:.65rem 1.05rem;border-radius:999px;background:rgba(12,12,13,.88);border:1px solid var(--line-2);color:var(--bone);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);white-space:nowrap;font-size:.72rem;text-transform:none;
+  opacity:0;transform:translate(-50%,140%);pointer-events:none;will-change:transform,opacity}
+.pull-bar{color:var(--ember);letter-spacing:-.04em}
+.egg{position:fixed;inset:0;z-index:90;background:#060607;display:grid;place-items:center;text-align:center;overflow:hidden;
+  clip-path:circle(0% at 50% 100%);transition:clip-path 450ms var(--ease-in-out)}
+.egg[hidden]{display:none}
+.egg.is-open{clip-path:circle(150% at 50% 100%);transition:clip-path 900ms var(--ease-out)}
+.egg-rain{position:absolute;inset:0;width:100%;height:100%;opacity:.5}
+.egg-scan{position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(to bottom,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),
+             radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,.75) 100%)}
+.egg-bands{position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:repeating-linear-gradient(to bottom,color-mix(in srgb,var(--ember) 55%,transparent) 0 6px,transparent 6px 38px)}
+.egg.burst .egg-bands{animation:bands 520ms steps(1) both}
+.egg.burst .egg-quote{animation:jolt 420ms steps(1) 2}
+@keyframes bands{0%{opacity:.9;transform:translateY(-12px)}20%{opacity:.5;transform:translateY(9px) scaleY(1.6)}40%{opacity:.8;transform:translateY(-4px)}60%{opacity:.3;transform:translateY(14px) scaleY(.6)}80%{opacity:.6;transform:none}100%{opacity:0}}
+.egg-quote{position:relative;z-index:1;margin:0;padding:0 var(--pad)}
+.egg-quote blockquote{margin:0}
+.egg-sys{margin:0 0 1.6rem;color:var(--ember);text-transform:none;font-size:.78rem}
+.egg-en{margin:0;font-weight:600;font-size:clamp(1.9rem,6.4vw,6.2rem);letter-spacing:-.045em;line-height:1.02;color:var(--bone);
+  text-shadow:0 0 34px color-mix(in srgb,var(--ember) 50%,transparent)}
+.egg-zh{margin:1.5rem 0 0;font-size:clamp(1.05rem,2.3vw,1.9rem);font-weight:500;letter-spacing:.6em;padding-left:.6em;color:#a9a5a0}
+.egg-quote figcaption{margin-top:1.4rem;color:var(--mute);text-transform:none}
+.egg .scr{color:var(--ember)}
+.gx{position:relative}
+.gx::before,.gx::after{content:attr(data-text);position:absolute;inset:0;pointer-events:none;opacity:0}
+.gx::before{color:var(--ember)}
+.gx::after{color:#c4b5fd;mix-blend-mode:screen}
+.gx.is-glitch::before{opacity:1;animation:glitchA 340ms steps(1) both}
+.gx.is-glitch::after{opacity:1;animation:glitchB 340ms steps(1) both}
+.gx.is-glitch{animation:jolt 340ms steps(1)}
+.egg-zh.gx::before,.egg-zh.gx::after{padding-left:.6em}
+.egg-close{position:absolute;bottom:calc(1.75rem + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:2;background:none;
+  border:1px solid var(--line-2);color:var(--mute);padding:.6rem 1.05rem;border-radius:999px;cursor:pointer;text-transform:none;
+  transition:color 200ms ease,border-color 200ms ease}
+.egg-close:active{transform:translateX(-50%) scale(.96)}
+@media (hover:hover) and (pointer:fine){.egg-close:hover{color:var(--bone);border-color:var(--ember)}}
+@media (prefers-reduced-motion:reduce){
+  .egg,.egg.is-open{clip-path:none;transition:opacity 200ms ease}
+  .egg{opacity:0}.egg.is-open{opacity:1}
+  .egg.burst .egg-bands,.egg.burst .egg-quote{animation:none}
+  .egg-rain{display:none}
+}
+
+/* ---------- Responsive ---------- */
+/* big screens: use the room, scale type with the canvas */
+@media (min-width:1800px){:root{--max:1680px}}
+@media (min-width:2200px){html{font-size:112.5%}}
+@media (min-width:3000px){html{font-size:131.25%} :root{--max:2100px}}
+/* tablets (portrait + landscape) */
+@media (min-width:701px) and (max-width:1000px){
+  .hero-top{grid-template-columns:repeat(4,1fr)}
+}
+/* short landscape phones: keep the hero inside one screen */
+@media (max-height:520px) and (orientation:landscape){
+  .hero{min-height:auto}
+  .hero-top{padding-top:5rem}
+  .hero-name{font-size:clamp(2.4rem,9vw,6rem);padding-top:1.5rem}
+  .hero-bottom{padding:1.25rem 0}
+  .sheet ol li a{padding:.5rem 0;font-size:1.6rem}
+}
+@media (max-width:1000px){
+  .nav-links,.nav-meta .clock{display:none}
+  .menu-btn{display:inline-flex}
+  .hero-top{grid-template-columns:1fr 1fr;row-gap:1.25rem}
+  .hero-bottom{grid-template-columns:1fr;gap:1.5rem}
+  .scroll-cue{display:none}
+  .sec-head{grid-template-columns:1fr;gap:1rem}
+  .about-grid,.about-grid.no-photo{grid-template-columns:1fr}
+  .about-grid.no-photo>div{grid-column:1}
+  .portrait{position:relative;top:0;max-width:22rem}
+  .disc-row{grid-template-columns:2.5rem 1fr;row-gap:.6rem}
+  .disc-row p{grid-column:2}
+  .disc-row .tags{grid-column:2;text-align:left}
+  .work-head{grid-template-columns:2.5rem minmax(0,1fr) 2.5rem;row-gap:.5rem}
+  .work-kind{grid-column:2;grid-row:2}
+  .work-year{display:none}
+  .plus{grid-column:3;grid-row:1}
+  .work-detail{grid-template-columns:2.5rem 1fr}
+  .work-detail>*{grid-column:2}
+  .work-detail>.spacer{display:none}
+  .stack-grid{grid-template-columns:1fr 1fr}
+  .stack-col:nth-child(3){padding-left:0;border-left:0}
+  .stack-col:nth-child(n+3){border-top:1px solid var(--line)}
+  .socials{grid-template-columns:1fr 1fr}
+  .socials>*:nth-child(3){padding-left:0;border-left:0}
+  .socials>*:nth-child(n+3){border-top:1px solid var(--line)}
+  .now{grid-template-columns:1fr}
+  .now div+div{padding-left:0;border-left:0;border-top:1px solid var(--line);margin-top:1.4rem}
+}
+@media (max-width:560px){
+  .nav-meta .status{display:none}
+  .brand .mono{display:none}
+  .hero-top{gap:.9rem}
+  .hero-top b{font-size:.68rem}
+  .cta-row .btn{flex:1 1 auto;justify-content:center}
+  .readme-stats{grid-template-columns:1fr 1fr}
+  .readme-stats div:nth-child(3){grid-column:1/-1;padding-left:0;border-left:0;border-top:1px solid var(--line)}
+  .socials{grid-template-columns:1fr}
+  .socials>*,.socials>*+*{padding-left:0;border-left:0}
+  .socials>*+*{border-top:1px solid var(--line)}
+  .work-detail ul{margin-top:.5rem}
+  .stack-grid{grid-template-columns:1fr}
+  .stack-col,.stack-col+.stack-col{padding-left:0;border-left:0}
+  .stack-col+.stack-col{border-top:1px solid var(--line)}
+}
+
+/* ---------- Accessibility preferences ---------- */
+@media (prefers-reduced-motion:reduce){
+  .status .dot,.scroll-cue i,.caret,.cc-status .dot{animation:none}
+  .disc-row,.work-title,.nav,.sheet{transition-property:color,opacity,background-color,visibility}
+  .sheet{transform:none;opacity:0}
+  .sheet.is-open{opacity:1}
+}
+@media (prefers-reduced-transparency:reduce){
+  .nav::before{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--ink)}
+}
+@media (prefers-contrast:more){
+  :root{--mute:#c2beb6;--line:rgba(236,233,226,.35);--line-2:rgba(236,233,226,.6)}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top" aria-label="eien.dev, back to top"><span>eien<span class="brand-dot">.</span>dev</span> <span class="mono">/ Portfolio</span></a>
+    <nav aria-label="Primary">
+      <ul class="nav-links">
+        <li><a href="#about"><span>01</span>About</a></li>
+        <li><a href="#disciplines"><span>02</span>Disciplines</a></li>
+        <li><a href="#work"><span>03</span>Work</a></li>
+        <li><a href="#github"><span>04</span>GitHub</a></li>
+        <li><a href="#stack"><span>05</span>Stack</a></li>
+        <li><a href="#contact"><span>06</span>Contact</a></li>
+      </ul>
+    </nav>
+    <div class="nav-meta mono">
+      <span class="clock" aria-label="Local time in the Philippines"><span data-clock>--:--</span> PHT</span>
+      <span class="status"><i class="dot" aria-hidden="true"></i> Open to work</span>
+      <button class="menu-btn mono" type="button" aria-expanded="false" aria-controls="sheet" data-menu-open>Menu</button>
+    </div>
+  </div>
+</header>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
+  <div class="sheet-top">
+    <span class="brand">eien<span class="brand-dot">.</span>dev</span>
+    <button class="menu-btn mono" type="button" data-menu-close style="display:inline-flex">Close</button>
+  </div>
+  <nav aria-label="Mobile">
+    <ol>
+      <li><a href="#about">About <span>01</span></a></li>
+      <li><a href="#disciplines">Disciplines <span>02</span></a></li>
+      <li><a href="#work">Work <span>03</span></a></li>
+      <li><a href="#github">GitHub <span>04</span></a></li>
+      <li><a href="#stack">Stack <span>05</span></a></li>
+      <li><a href="#contact">Contact <span>06</span></a></li>
+    </ol>
+  </nav>
+  <div class="sheet-foot mono"><span><span data-clock>--:--</span> PHT</span><span>Open to work</span></div>
+</div>
+
+<main id="main">
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="top" aria-labelledby="hero-title">
+  <div class="hero-visual" aria-hidden="true"><canvas id="field"></canvas></div>
+  <div class="wrap" style="display:flex;flex-direction:column;flex:1;width:100%">
+    <div class="hero-top mono" data-hero-meta>
+      <div>Role<b>Software Engineer</b></div>
+      <div>Company<b>Owner, UNIA LLC</b></div>
+      <div>Specialty<b>Games &amp; Reverse Eng.</b></div>
+      <div>Studying<b>BSIT, DLSU-D</b></div>
+    </div>
+
+    <h1 class="hero-name" id="hero-title">
+      <span class="line">Jan</span>
+      <span class="line">Saquilayan<span class="ember">.</span></span>
+    </h1>
+
+    <div class="hero-bottom">
+      <p class="hero-lede" data-hero-lede>I build games in Unity, take software apart to learn how it really works, and write C++ <em>close to the metal</em>. I also run UNIA LLC.</p>
+      <div class="cta-row">
+        <a class="btn" href="#work" data-magnetic>See the work <span class="arr" aria-hidden="true">→</span></a>
+        <a class="btn btn--ghost" href="#contact" data-magnetic>Get in touch</a>
+      </div>
+      <div class="scroll-cue mono" aria-hidden="true"><i></i>Scroll</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TICKER ================= -->
+<div class="ticker" aria-label="Most used languages on GitHub: C++ 75.11%, C# 8.84%, TypeScript 7.34%, C 3.21%, Python 2.5%, JavaScript 1.59%, Rust 0.94%, HLSL 0.47%" role="img" data-ticker>
+  <div class="tk-row" data-dir="-1"><div class="tk-track"><div class="tk-group"><span class="tk-item is-top"><span class="tk-word" data-text="C++">C++</span><sup>75.11%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="C#">C#</span><sup>8.84%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="TypeScript">TypeScript</span><sup>7.34%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="C">C</span><sup>3.21%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="Python">Python</span><sup>2.50%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="JavaScript">JavaScript</span><sup>1.59%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="Rust">Rust</span><sup>0.94%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="HLSL">HLSL</span><sup>0.47%</sup></span><span class="tk-sep">/</span></div><div class="tk-group"><span class="tk-item is-top"><span class="tk-word" data-text="C++">C++</span><sup>75.11%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="C#">C#</span><sup>8.84%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="TypeScript">TypeScript</span><sup>7.34%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="C">C</span><sup>3.21%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="Python">Python</span><sup>2.50%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="JavaScript">JavaScript</span><sup>1.59%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="Rust">Rust</span><sup>0.94%</sup></span><span class="tk-sep">/</span><span class="tk-item"><span class="tk-word" data-text="HLSL">HLSL</span><sup>0.47%</sup></span><span class="tk-sep">/</span></div></div></div>
+  <div class="tk-row" data-dir="1"><div class="tk-track"><div class="tk-group"><span class="tk-item tk-outline"><span class="tk-word" data-text="Software Engineer">Software Engineer</span></span><span class="tk-sep tk-star">✦</span><span class="tk-item tk-outline"><span class="tk-word" data-text="Reverse Engineer">Reverse Engineer</span></span><span class="tk-sep tk-star">✦</span><span class="tk-item tk-outline"><span class="tk-word" data-text="Game Hacking">Game Hacking</span></span><span class="tk-sep tk-star">✦</span><span class="tk-item tk-outline"><span class="tk-word" data-text="Unity Game Dev">Unity Game Dev</span></span><span class="tk-sep tk-star">✦</span><span class="tk-item tk-outline"><span class="tk-word" data-text="UNIA LLC">UNIA LLC</span></span><span class="tk-sep tk-star">✦</span></div><div class="tk-group"><span class="tk-item tk-outline"><span class="tk-word" data-text="Software Engineer">Software Engineer</span></span><span class="tk-sep tk-star">✦</span><span class="tk-item tk-outline"><span class="tk-word" data-text="Reverse Engineer">Reverse Engineer</span></span><span class="tk-sep tk-star">✦</span><span class="tk-item tk-outline"><span class="tk-word" data-text="Game Hacking">Game Hacking</span></span><span class="tk-sep tk-star">✦</span><span class="tk-item tk-outline"><span class="tk-word" data-text="Unity Game Dev">Unity Game Dev</span></span><span class="tk-sep tk-star">✦</span><span class="tk-item tk-outline"><span class="tk-word" data-text="UNIA LLC">UNIA LLC</span></span><span class="tk-sep tk-star">✦</span></div></div></div>
+  <span class="tk-label mono" aria-hidden="true"><b>&gt;</b> github --langs --share<i class="caret"></i></span>
+</div>
+
+<!-- ================= ABOUT ================= -->
+<section class="sec" id="about" aria-labelledby="about-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-label mono"><span>01</span>About</p>
+      <h2 class="h2" id="about-title" data-split>Build it. <span class="soft">Then take it apart.</span></h2>
+    </div>
+
+    <div class="about-grid" data-about-grid>
+      <figure class="portrait" data-portrait>
+        <div class="frame"><img src="assets/portrait.jpg" alt="Portrait of Jan Saquilayan" width="800" height="1000" loading="lazy" decoding="async" onerror="this.closest('[data-portrait]').remove();document.querySelector('[data-about-grid]').classList.add('no-photo')"></div>
+        <figcaption class="mono"><span>Jan Saquilayan</span><span>BIT14</span></figcaption>
+      </figure>
+
+      <div>
+        <p class="statement" data-scrub>I'm a software engineer and the owner of UNIA LLC, studying BSIT at De La Salle University–Dasmariñas. Most of my code is C++. I build games in Unity, and I reverse engineer them too: reading memory, tracing engine calls, finding out how a game actually runs instead of how it's documented. Breaking things down taught me <span class="ember">how to build them properly.</span> I bring the same habit to the web, to a Windows app called Ei!, and to the Java problem sets my professor has me write for the batch below mine.</p>
+
+        <div class="now">
+          <div><span class="mono">Focus</span><p>Unity game development, reverse engineering and game hacking.</p></div>
+          <div><span class="mono">Currently</span><p>Running UNIA LLC. Building Project UNIA in C# and WPF. Learning Java in depth.</p></div>
+          <div><span class="mono">Looking for</span><p>Clients, web, and back-end projects.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DISCIPLINES ================= -->
+<section class="sec" id="disciplines" aria-labelledby="disc-title" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-label mono"><span>02</span>Disciplines</p>
+      <h2 class="h2" id="disc-title" data-split>What I do, <span class="soft">front to back.</span></h2>
+    </div>
+
+    <ul class="disc" data-stagger>
+      <li><div class="disc-row"><span class="idx mono">01</span><h3>Unity Game Dev</h3><p>Gameplay systems, tools and shaders in Unity, plus the C++ and C# underneath.</p><span class="tags mono">Unity · C# · HLSL</span></div></li>
+      <li><div class="disc-row"><span class="idx mono">02</span><h3>Reverse Engineering</h3><p>Taking compiled software apart: disassembly, debugging and reconstructing how it works.</p><span class="tags mono">C · C++ · ASM</span></div></li>
+      <li><div class="disc-row"><span class="idx mono">03</span><h3>Game Hacking</h3><p>Reading game memory, hooking engine functions and studying the protections around them.</p><span class="tags mono">C++ · Memory · Hooks</span></div></li>
+      <li><div class="disc-row"><span class="idx mono">04</span><h3>Software Engineering</h3><p>Native, performance-first code in C++ and Rust that stays fast as it grows.</p><span class="tags mono">C++ · Rust · C</span></div></li>
+      <li><div class="disc-row"><span class="idx mono">05</span><h3>Front-end</h3><p>Interfaces that respond on press, with motion that explains instead of decorates.</p><span class="tags mono">TS · HTML · CSS</span></div></li>
+      <li><div class="disc-row"><span class="idx mono">06</span><h3>Back-end & Full-stack</h3><p>APIs, databases and deployment: one person from the schema to the button.</p><span class="tags mono">PHP · Python · Node</span></div></li>
+      <li><div class="disc-row"><span class="idx mono">07</span><h3>AI Engineering</h3><p>Wiring language models into real products: prompts, retrieval, evaluation and glue code.</p><span class="tags mono">Python · LLM APIs</span></div></li>
+      <li><div class="disc-row"><span class="idx mono">08</span><h3>Desktop Apps</h3><p>Native Windows software with a real installer and a window that opens instantly.</p><span class="tags mono">C# · WPF · .NET</span></div></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= WORK ================= -->
+<section class="sec" id="work" aria-labelledby="work-title" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-label mono"><span>03</span>Selected work</p>
+      <h2 class="h2" id="work-title" data-split>What I've been <span class="soft">working on.</span></h2>
+    </div>
+
+    <ul class="work" data-stagger>
+      <li>
+        <button class="work-head" type="button" aria-expanded="false" aria-controls="w1">
+          <span class="idx mono">01</span><span class="work-title">UNIA-GC</span><span class="work-kind mono">UNIA LLC</span><span class="work-year mono">2026</span><span class="plus" aria-hidden="true"></span>
+        </button>
+        <div class="work-body" id="w1" role="region" aria-label="UNIA-GC details"><div>
+          <div class="work-detail">
+            <span class="spacer"></span>
+            <div class="work-copy"><p>A project under UNIA LLC, the company I own.</p></div>
+            <ul><li class="chip">UNIA LLC</li></ul>
+            <span class="status-tag mono">UNIA LLC</span>
+          </div>
+        </div></div>
+      </li>
+      <li>
+        <button class="work-head" type="button" aria-expanded="false" aria-controls="w2">
+          <span class="idx mono">02</span><span class="work-title">AKEBI-GC</span><span class="work-kind mono">Game runtime · C++</span><span class="work-year mono">2022</span><span class="plus" aria-hidden="true"></span>
+        </button>
+        <div class="work-body" id="w2" role="region" aria-label="AKEBI-GC details"><div>
+          <div class="work-detail">
+            <span class="spacer"></span>
+            <div class="work-copy"><p>My project for Genshin Impact 3.0 – 7.2.</p>
+            <a class="btn btn--ghost work-link" href="https://github.com/Eienmode/Akebi-GC-Backup" target="_blank" rel="noopener">View on GitHub <span class="arr" aria-hidden="true">↗</span></a></div>
+            <ul><li class="chip">C++</li><li class="chip">Dev</li></ul>
+            <span class="status-tag mono">Developer</span>
+          </div>
+        </div></div>
+      </li>
+      <li>
+        <button class="work-head" type="button" aria-expanded="false" aria-controls="w3">
+          <span class="idx mono">03</span><span class="work-title">EIEN.DEV</span><span class="work-kind mono">Web · Creative dev</span><span class="work-year mono">2026</span><span class="plus" aria-hidden="true"></span>
+        </button>
+        <div class="work-body" id="w3" role="region" aria-label="EIEN.DEV details"><div>
+          <div class="work-detail">
+            <span class="spacer"></span>
+            <div class="work-copy"><p>The site you're on. One hand-written HTML file: a WebGL dither shader in the hero that renders at a third of screen resolution and stops when it scrolls away, GSAP choreography, Lenis smooth scroll, and full reduced-motion support.</p></div>
+            <ul><li class="chip">Three.js</li><li class="chip">GLSL</li><li class="chip">GSAP</li><li class="chip">Lenis</li></ul>
+            <span class="status-tag mono">Live</span>
+          </div>
+        </div></div>
+      </li>
+    </ul>
+
+    <div class="work-more">
+      <span class="mono">More projects and source code on GitHub</span>
+      <a class="btn btn--ghost" href="https://github.com/Eienmode" target="_blank" rel="noopener" data-magnetic>github.com/Eienmode <span class="arr" aria-hidden="true">↗</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= GITHUB ================= -->
+<section class="sec" id="github" aria-labelledby="gh-title" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-label mono"><span>04</span>GitHub</p>
+      <h2 class="h2" id="gh-title" data-split>The README, <span class="soft">rendered.</span></h2>
+    </div>
+
+    <div class="gh-grid">
+      <article class="readme" data-reveal aria-label="GitHub profile summary">
+        <header class="readme-bar mono"><span><i></i><i></i><i></i></span><span>Eienmode / README.md</span><a href="https://github.com/Eienmode" target="_blank" rel="noopener">@Eienmode ↗</a></header>
+        <div class="readme-body">
+          <p class="readme-prompt mono"><span>$</span> whoami</p>
+          <h3>Jan Saquilayan <span class="alias"><b>·</b> Eien</span></h3>
+          <p class="readme-roles">Software Engineer <b>·</b> Reverse Engineer <b>·</b> Game Hacking <b>·</b> Unity Game Dev</p>
+          <p class="readme-co mono">Owner of <span>UNIA LLC</span></p>
+          <dl class="readme-stats">
+            <div><dt class="mono">Repositories</dt><dd>9</dd></div>
+            <div><dt class="mono">Languages</dt><dd>22</dd></div>
+            <div><dt class="mono">Main language</dt><dd>C++</dd></div>
+          </dl>
+          <figure class="gh" data-gh style="margin:0">
+      <figcaption class="gh-cap"><span class="mono">Most used languages</span><span class="mono"><b>22</b> languages · top 8 shown</span></figcaption>
+      <div class="gh-bar" role="img" aria-label="C++ 75.11%, C# 8.84%, TypeScript 7.34%, C 3.21%, Python 2.5%, JavaScript 1.59%, Rust 0.94%, HLSL 0.47%"><i style="--w:75.11;--c:var(--ember)" title="C++ 75.11%"></i><i style="--w:8.84;--c:var(--ember-2)" title="C# 8.84%"></i><i style="--w:7.34;--c:#ece9e2" title="TypeScript 7.34%"></i><i style="--w:3.21;--c:#b9b4ab" title="C 3.21%"></i><i style="--w:2.5;--c:#8f8b84" title="Python 2.5%"></i><i style="--w:1.59;--c:#6b6863" title="JavaScript 1.59%"></i><i style="--w:0.94;--c:#4d4b47" title="Rust 0.94%"></i><i style="--w:0.47;--c:#3a3835" title="HLSL 0.47%"></i></div>
+      <ul class="gh-legend">
+        <li><i style="--c:var(--ember)"></i><span>C++</span><b data-count="75.11">75.11%</b><small>114 MB</small></li>
+        <li><i style="--c:var(--ember-2)"></i><span>C#</span><b data-count="8.84">8.84%</b><small>13.4 MB</small></li>
+        <li><i style="--c:#ece9e2"></i><span>TypeScript</span><b data-count="7.34">7.34%</b><small>11.1 MB</small></li>
+        <li><i style="--c:#b9b4ab"></i><span>C</span><b data-count="3.21">3.21%</b><small>4.89 MB</small></li>
+        <li><i style="--c:#8f8b84"></i><span>Python</span><b data-count="2.5">2.5%</b><small>3.81 MB</small></li>
+        <li><i style="--c:#6b6863"></i><span>JavaScript</span><b data-count="1.59">1.59%</b><small>2.42 MB</small></li>
+        <li><i style="--c:#4d4b47"></i><span>Rust</span><b data-count="0.94">0.94%</b><small>1.43 MB</small></li>
+        <li><i style="--c:#3a3835"></i><span>HLSL</span><b data-count="0.47">0.47%</b><small>712 kB</small></li>
+      </ul>
+    </figure>
+        </div>
+      </article>
+
+      <div class="repos" data-stagger>
+        <a class="repo" href="https://github.com/Eienmode/Ananta-Lua-Dumper" target="_blank" rel="noopener">
+          <span class="repo-top"><span class="repo-name">Ananta-Lua-Dumper</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+          <span class="repo-fork mono">Public</span>
+          <span class="repo-desc">Extracts and decompiles Ananta's packaged LuaJIT scripts into readable Lua.</span>
+          <span class="repo-meta mono"><span><i style="--c:#8f8b84"></i>Python</span><span aria-label="3 stars">★ 3</span><span aria-label="1 fork">⑂ 1</span></span>
+        </a>
+        <a class="repo" href="https://github.com/Eienmode/AFKJ-Tool" target="_blank" rel="noopener">
+          <span class="repo-top"><span class="repo-name">AFKJ-Tool</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+          <span class="repo-fork mono">Public</span>
+          <span class="repo-desc">MelonLoader mod for debugging.</span>
+          <span class="repo-meta mono"><span><i style="--c:var(--ember-2)"></i>C#</span><span aria-label="4 stars">★ 4</span></span>
+        </a>
+        <a class="repo" href="https://github.com/Eienmode/CommandMenu" target="_blank" rel="noopener">
+          <span class="repo-top"><span class="repo-name">CommandMenu</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+          <span class="repo-fork mono">Public</span>
+          <span class="repo-desc">A C++ library for creating command-line interface menus.</span>
+          <span class="repo-meta mono"><span><i style="--c:var(--ember)"></i>C++</span><span aria-label="8 stars">★ 8</span></span>
+        </a>
+        <a class="repo" href="https://github.com/Eienmode/Unity-SceneReference" target="_blank" rel="noopener">
+          <span class="repo-top"><span class="repo-name">Unity-SceneReference</span><span class="repo-arr" aria-hidden="true">↗</span></span>
+          <span class="repo-fork mono">Public</span>
+          <span class="repo-desc">Type-safe scene management for Unity, with automatic build settings management and scene enum generation.</span>
+          <span class="repo-meta mono"><span><i style="--c:var(--ember-2)"></i>C#</span><span aria-label="3 stars">★ 3</span><span>MIT License</span></span>
+        </a>
+        <a class="repo repo--all" href="https://github.com/Eienmode?tab=repositories" target="_blank" rel="noopener">
+          <span class="repo-name">All 9 repositories</span>
+          <span class="repo-desc">Source, forks and experiments on GitHub.</span>
+          <span class="repo-arr" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= STACK ================= -->
+<section class="sec" id="stack" aria-labelledby="stack-title" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-label mono"><span>05</span>Stack</p>
+      <h2 class="h2" id="stack-title" data-split>Mostly C++. <span class="soft">Plenty more.</span></h2>
+    </div>
+
+    <div class="stack-grid" data-stagger>
+      <div class="stack-col">
+        <h3 class="mono">Languages <span>12</span></h3>
+        <ul>
+          <li class="core">C++ <small>Core</small></li>
+          <li class="core">C# <small>Core</small></li>
+          <li class="core">TypeScript <small>Core</small></li>
+          <li class="core">C <small>Core</small></li>
+          <li class="core">Python <small>Core</small></li>
+          <li>JavaScript <small>Web</small></li>
+          <li>Rust <small>Systems</small></li>
+          <li>HLSL <small>Shaders</small></li>
+          <li>PHP <small>Back end</small></li>
+          <li>Java <small>Learning</small></li>
+          <li>SQL <small>Data</small></li>
+          <li>HTML &amp; CSS <small>Web</small></li>
+        </ul>
+      </div>
+      <div class="stack-col">
+        <h3 class="mono">Games &amp; reversing <span>07</span></h3>
+        <ul>
+          <li class="core">Unity <small>Core</small></li>
+          <li>IDA / Ghidra <small>Disasm</small></li>
+          <li>x64dbg <small>Debugger</small></li>
+          <li>Cheat Engine <small>Memory</small></li>
+          <li>DirectX <small>Graphics</small></li>
+          <li>Blender <small>3D</small></li>
+          <li>Godot <small>Engine</small></li>
+        </ul>
+      </div>
+      <div class="stack-col">
+        <h3 class="mono">Web &amp; back end <span>07</span></h3>
+        <ul>
+          <li>React <small>UI</small></li>
+          <li>Node.js <small>Server</small></li>
+          <li>Laravel <small>PHP</small></li>
+          <li>FastAPI <small>Python</small></li>
+          <li>MySQL <small>Database</small></li>
+          <li>Three.js <small>WebGL</small></li>
+          <li>GSAP <small>Motion</small></li>
+        </ul>
+      </div>
+      <div class="stack-col">
+        <h3 class="mono">AI &amp; workflow <span>06</span></h3>
+        <ul>
+          <li>LLM APIs <small>AI</small></li>
+          <li>PyTorch <small>AI</small></li>
+          <li>Git &amp; GitHub <small>Version</small></li>
+          <li>Visual Studio <small>IDE</small></li>
+          <li>VS Code <small>Editor</small></li>
+          <li>Figma <small>Design</small></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legend mono"><span><i class="dot"></i> Core: what I use most</span></div>
+  </div>
+</section>
+
+<!-- ================= CONTACT ================= -->
+<section class="contact" id="contact" aria-labelledby="contact-title">
+  <div class="wrap contact-grid">
+    <div class="contact-copy">
+      <p class="sec-label mono" style="margin-bottom:2rem"><span>06</span>Contact</p>
+      <h2 class="h2" id="contact-title" data-split>Let's build something <span class="soft">that runs well.</span></h2>
+      <p class="contact-lede" data-reveal>Games, reverse engineering, or a site that needs to be fast. Email works best, and I'm on GMT+8.</p>
+    </div>
+
+    <article class="readme contact-card" data-reveal aria-label="Contact card">
+      <header class="readme-bar mono"><span><i></i><i></i><i></i></span><span>eienmode / contact.md</span><a href="https://github.com/Eienmode" target="_blank" rel="noopener">@Eienmode ↗</a></header>
+      <div class="readme-body">
+        <p class="readme-prompt mono"><span>$</span> contacts eien</p>
+        <div class="cc-id">
+          <figure class="avatar"><img src="data:image/webp;base64,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" alt="Jan Saquilayan's GitHub avatar" width="200" height="200" decoding="async"><i class="online" aria-hidden="true"></i></figure>
+          <div>
+            <h3>Jan Saquilayan <span class="alias"><b>·</b> Eien</span></h3>
+            <p class="cc-handle mono">@Eienmode · Owner, UNIA LLC</p>
+          </div>
+        </div>
+        <p class="cc-status mono"><i class="dot" aria-hidden="true"></i> Open to work <span class="cc-sep">·</span> <span data-clock>--:--</span> PHT</p>
+
+        <div class="cc-mail">
+          <span class="mono cc-label">Email</span>
+          <a href="mailto:jan.saquilayan019@gmail.com">jan.saquilayan019@gmail.com</a>
+          <button class="copy" type="button" data-copy="jan.saquilayan019@gmail.com" aria-label="Copy email address"><span class="idle">Copy</span><span class="done" aria-hidden="true">Copied</span></button>
+        </div>
+
+        <ul class="cc-links">
+          <li><a href="https://github.com/Eienmode" target="_blank" rel="noopener"><span class="mono cc-label">GitHub</span><span class="cc-val">Eienmode</span><i class="cc-ic" aria-hidden="true">↗</i></a></li>
+          <li><a href="https://www.instagram.com/eieneeeee/" target="_blank" rel="noopener"><span class="mono cc-label">Instagram</span><span class="cc-val">@eieneeeee</span><i class="cc-ic" aria-hidden="true">↗</i></a></li>
+          <li><button type="button" data-copy="eienee" aria-label="Copy Discord username eienee"><span class="mono cc-label">Discord</span><span class="cc-val" data-copy-label>eienee</span><i class="cc-ic" aria-hidden="true">⧉</i></button></li>
+          <li><div class="cc-row"><span class="mono cc-label">Facebook · Teams</span><span class="cc-val">Jan Saquilayan</span><i class="cc-ic" aria-hidden="true"></i></div></li>
+        </ul>
+      </div>
+    </article>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot mono">
+    <span>© 2026 eien.dev · Jan Saquilayan</span>
+    <span>UNIA LLC · Hand-coded with Three.js, GSAP, Lenis</span>
+    <a href="#top">Back to top ↑</a>
+  </div>
+</footer>
+<!-- ================= EASTER EGG: pull past the end ================= -->
+<div class="pull mono" aria-hidden="true" data-pull><span class="pull-bar" data-pull-bar>[░░░░░░░░░░░░]</span><span data-pull-txt>keep scrolling</span></div>
+<div class="egg" data-egg role="dialog" aria-modal="true" aria-label="Nothing endures but change. 唯有变化永恒. Heraclitus." hidden>
+  <canvas class="egg-rain" data-egg-rain aria-hidden="true"></canvas>
+  <div class="egg-bands" aria-hidden="true"></div>
+  <div class="egg-scan" aria-hidden="true"></div>
+  <figure class="egg-quote" aria-hidden="true">
+    <p class="egg-sys mono" data-egg-sys>&gt; decrypt --key eien</p>
+    <blockquote><p class="egg-en gx" data-egg-en data-text="“Nothing endures but change”">“Nothing endures but change”</p></blockquote>
+    <p class="egg-zh gx" lang="zh-Hans" data-egg-zh data-text="唯有变化永恒">唯有变化永恒</p>
+    <figcaption class="mono">// Heraclitus</figcaption>
+  </figure>
+  <button class="egg-close mono" type="button" data-egg-close>[esc] return</button>
+</div>
+<div class="live" aria-live="polite" data-live></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  'use strict';
+  const root = document.documentElement;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const hasGSAP = !!(window.gsap && window.ScrollTrigger);
+  const cleanups = [];
+
+  // If GSAP failed to load, drop motion-only styles so everything is visible.
+  if (!hasGSAP) root.classList.remove('js');
+
+  /* ---------- Clock (Asia/Manila) ---------- */
+  const clocks = document.querySelectorAll('[data-clock]');
+  const fmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila' });
+  const tick = () => { const t = fmt.format(new Date()); clocks.forEach(c => (c.textContent = t)); };
+  tick(); const clockId = setInterval(tick, 15000); cleanups.push(() => clearInterval(clockId));
+
+  /* ---------- Live region ---------- */
+  const live = document.querySelector('[data-live]');
+  const announce = (msg) => { live.textContent = ''; requestAnimationFrame(() => (live.textContent = msg)); };
+
+  /* ---------- Copy buttons ---------- */
+  document.querySelectorAll('[data-copy]').forEach(btn => {
+    let timer;
+    btn.addEventListener('click', async () => {
+      const value = btn.dataset.copy;
+      try { await navigator.clipboard.writeText(value); }
+      catch { announce('Copy is blocked here. The value is ' + value); return; }
+      clearTimeout(timer);
+      btn.classList.add('is-done');
+      const label = btn.querySelector('[data-copy-label]');
+      if (label) label.textContent = 'Copied';
+      announce('Copied ' + value);
+      timer = setTimeout(() => { btn.classList.remove('is-done'); if (label) label.textContent = value; }, 1800);
+    });
+  });
+
+  /* ---------- Work accordion ---------- */
+  document.querySelectorAll('.work-head').forEach(head => {
+    head.addEventListener('click', () => {
+      const li = head.parentElement;
+      const open = !li.classList.contains('is-open');
+      li.classList.toggle('is-open', open);
+      head.setAttribute('aria-expanded', String(open));
+      if (hasGSAP) setTimeout(() => ScrollTrigger.refresh(), 480);
+    });
+  });
+
+  /* ---------- Mobile menu sheet ---------- */
+  const sheet = document.getElementById('sheet');
+  const openBtn = document.querySelector('[data-menu-open]');
+  const closeBtn = document.querySelector('[data-menu-close]');
+  let lenis = null;
+  const setMenu = (open) => {
+    sheet.classList.toggle('is-open', open);
+    sheet.setAttribute('aria-hidden', String(!open));
+    openBtn.setAttribute('aria-expanded', String(open));
+    if (lenis) open ? lenis.stop() : lenis.start();
+    (open ? closeBtn : openBtn).focus({ preventScroll: true });
+  };
+  openBtn.addEventListener('click', () => setMenu(true));
+  closeBtn.addEventListener('click', () => setMenu(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheet.classList.contains('is-open')) setMenu(false); });
+  sheet.querySelectorAll('a').forEach(a => a.addEventListener('click', () => setMenu(false)));
+
+  /* ---------- Split headings into words (accessible) ---------- */
+  // Keeps an unsplit copy for assistive tech; split words are aria-hidden.
+  function splitWords(el) {
+    const label = el.textContent.replace(/\s+/g, ' ').trim();
+    const visual = document.createElement('span');
+    visual.setAttribute('aria-hidden', 'true');
+    visual.className = 'split-words';
+    const walk = (node, into) => {
+      node.childNodes.forEach(n => {
+        if (n.nodeType === 3) {
+          n.textContent.split(/(\s+)/).forEach(part => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) { into.appendChild(document.createTextNode(' ')); return; }
+            const w = document.createElement('span'); w.className = 'w';
+            const inner = document.createElement('span'); inner.textContent = part;
+            w.appendChild(inner); into.appendChild(w);
+          });
+        } else if (n.nodeType === 1) {
+          const clone = n.cloneNode(false); into.appendChild(clone); walk(n, clone);
+        }
+      });
+    };
+    walk(el, visual);
+    const sr = document.createElement('span'); sr.className = 'sr-only'; sr.textContent = label;
+    el.textContent = ''; el.append(sr, visual);
+    return visual.querySelectorAll('.w > span');
+  }
+
+  /* ---------- Accent: a new purple / pink / red each time you enter a section ---------- */
+  const PALETTE = ['#a855f7', '#d946ef', '#ff3d8b', '#ff2e63', '#e11d48', '#8b5cf6', '#c026d3', '#f43f5e'];
+  const accent = { hex: PALETTE[(Math.random() * PALETTE.length) | 0] };
+  const setAccent = (hex) => { accent.hex = hex; root.style.setProperty('--ember', hex); };
+  const pickAccent = () => {
+    let next; do { next = PALETTE[(Math.random() * PALETTE.length) | 0]; } while (next === accent.hex);
+    setAccent(next);
+  };
+  setAccent(accent.hex);
+  let lastZone = null;
+  const zoneIO = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting && e.target !== lastZone) { lastZone = e.target; pickAccent(); } });
+  }, { rootMargin: '-40% 0px -55% 0px' });
+  document.querySelectorAll('#top, .ticker, main section[id]').forEach(z => zoneIO.observe(z));
+  cleanups.push(() => zoneIO.disconnect());
+
+  /* ---------- Hover scramble: characters near the cursor turn to glyphs while it moves ---------- */
+  const HS = (() => {
+    const ASC = '!<>-_\\/[]{}=+*^?#%$01ABCDEF', CJKP = '唯有变化永恒零壹序码虚空界光影流转数据核心';
+    const pick = (ch) => { const pool = ch.charCodeAt(0) > 0x2e7f ? CJKP : ASC; return pool[(Math.random() * pool.length) | 0]; };
+    const live = new Map();           // char span -> expiry time
+    const targets = new Set();
+    let loopRaf = 0;
+    const lock = (el) => {            // fixed widths so swapped glyphs never reflow the line
+      const cs = [...el.querySelectorAll('.hc')];
+      cs.forEach(c => (c.style.width = ''));
+      const ws = cs.map(c => c.getBoundingClientRect().width);
+      cs.forEach((c, i) => (c.style.width = ws[i] + 'px'));
+      el._fs = parseFloat(getComputedStyle(el).fontSize) || 16;
+    };
+    const split = (el) => {
+      if (reduce) return;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(t => {
+        if (t.parentElement.closest('.hc,.sr-only')) return;
+        const frag = document.createDocumentFragment();
+        t.textContent.split(/(\s+)/).forEach(part => {
+          if (!part) return;
+          if (/^\s+$/.test(part)) { frag.append(part); return; }
+          const w = document.createElement('span'); w.className = 'hw';
+          [...part].forEach(ch => { const c = document.createElement('span'); c.className = 'hc'; c.dataset.c = ch; c.textContent = ch; w.append(c); });
+          frag.append(w);
+        });
+        t.replaceWith(frag);
+      });
+      lock(el);
+    };
+    const loop = (now) => {
+      live.forEach((exp, c) => {
+        if (now > exp) { c.textContent = c.dataset.c; c.classList.remove('on'); live.delete(c); }
+        else if (now - c._t > 70) { c.textContent = pick(c.dataset.c); c._t = now; }
+      });
+      loopRaf = live.size ? requestAnimationFrame(loop) : 0;
+    };
+    let pending = null, moveRaf = 0;
+    const apply = () => {
+      moveRaf = 0; if (!pending) return;
+      const { el, x, y } = pending; pending = null;
+      const r = Math.max(22, el._fs * 0.7), now = performance.now();
+      el.querySelectorAll('.hc').forEach(c => {
+        const b = c.getBoundingClientRect(), dx = x - (b.left + b.width / 2), dy = y - (b.top + b.height / 2);
+        if (dx * dx + dy * dy < r * r) {
+          if (!live.has(c)) { c.textContent = pick(c.dataset.c); c._t = now; c.classList.add('on'); }
+          live.set(c, now + 120 + Math.random() * 200);
+        }
+      });
+      if (live.size && !loopRaf) loopRaf = requestAnimationFrame(loop);
+    };
+    const onMove = (e) => { pending = { el: e.currentTarget, x: e.clientX, y: e.clientY }; if (!moveRaf) moveRaf = requestAnimationFrame(apply); };
+    const prepare = (el) => {
+      if (reduce || !el || targets.has(el)) return;
+      if (!el.closest('[aria-hidden="true"],[role="img"]')) { // keep one clean copy for screen readers
+        const label = el.textContent.replace(/\s+/g, ' ').trim();
+        const vis = document.createElement('span'); vis.setAttribute('aria-hidden', 'true');
+        while (el.firstChild) vis.append(el.firstChild);
+        const sr = document.createElement('span'); sr.className = 'sr-only'; sr.textContent = label;
+        el.append(sr, vis);
+      }
+      split(el); targets.add(el);
+      el.addEventListener('pointermove', onMove);
+    };
+    const relock = () => targets.forEach(el => { if (el.isConnected) lock(el); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(relock);
+    let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(relock, 150); });
+    cleanups.push(() => cancelAnimationFrame(loopRaf));
+    const poke = (el, n = 1, hold = 260) => {
+      const cs = el ? el.querySelectorAll('.hc') : [];
+      if (!cs.length) return;
+      const now = performance.now();
+      for (let i = 0; i < n; i++) {
+        const c = cs[(Math.random() * cs.length) | 0];
+        if (!c.dataset.c.trim()) continue;
+        if (!live.has(c)) { c.textContent = pick(c.dataset.c); c._t = now; c.classList.add('on'); }
+        live.set(c, now + hold * (0.6 + Math.random()));
+      }
+      if (!loopRaf) loopRaf = requestAnimationFrame(loop);
+    };
+    return { prepare, split, poke };
+  })();
+
+  /* ---------- Hero shader (Three.js) ---------- */
+  function initField() {
+    const canvas = document.getElementById('field');
+    if (!canvas || !window.THREE || reduce) return null; // poster stays
+    let renderer;
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'low-power' }); }
+    catch { return null; }
+
+    const PX = 3; // one dither cell = 3 CSS px
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const uniforms = {
+      uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
+      uMouse: { value: new THREE.Vector2(-999, -999) }, uAmp: { value: 0 },
+      uInk: { value: new THREE.Color('#0c0c0d') }, uDim: { value: new THREE.Color(accent.hex).lerp(new THREE.Color('#0c0c0d'), 0.78) }, uEmber: { value: new THREE.Color(accent.hex) }
+    };
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: 'void main(){gl_Position=vec4(position.xy,0.,1.);}',
+      fragmentShader: `
+        precision mediump float;
+        uniform float uTime; uniform vec2 uRes; uniform vec2 uMouse; uniform float uAmp;
+        uniform vec3 uInk; uniform vec3 uDim; uniform vec3 uEmber;
+        float hash(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+        float noise(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);
+          return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);}
+        float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v;}
+        float bayer2(vec2 a){a=floor(a);return fract(dot(a,vec2(.5,a.y*.75)));}
+        float bayer4(vec2 a){return bayer2(.5*a)*.25+bayer2(a);}
+        float bayer8(vec2 a){return bayer4(.5*a)*.25+bayer2(a);}
+        void main(){
+          vec2 px=gl_FragCoord.xy; vec2 uv=px/uRes; float asp=uRes.x/uRes.y;
+          vec2 p=vec2(uv.x*asp,uv.y); float t=uTime*.05;
+          vec2 q=vec2(fbm(p*1.6+t),fbm(p*1.6-t+3.1));          // domain warp
+          float n=fbm(p*2.1+q*1.4+vec2(t*.6,-t*.4));
+          vec2 m=vec2(uMouse.x/uRes.x*asp,uMouse.y/uRes.y);
+          float d=distance(p,m);
+          float halo=smoothstep(.32,0.,d);
+          float ring=.5+.5*sin(d*46.-uTime*3.2);
+          n+=halo*uAmp*(.32+.18*ring);
+          float mask=smoothstep(.05,1.,uv.x*.65+(1.-uv.y)*.75-.12);
+          float v=n*mask*1.25+halo*.12;
+          float th=bayer8(px);
+          float a=step(th,(v-.22)*1.6);
+          float b=step(th,(v-.5)*2.2);
+          vec3 col=mix(uInk,uDim,a); col=mix(col,uEmber,b);
+          gl_FragColor=vec4(col,1.);
+        }`
+    });
+    const tgt = new THREE.Color(), INK = new THREE.Color('#0c0c0d');
+    const geo = new THREE.PlaneGeometry(2, 2);
+    scene.add(new THREE.Mesh(geo, material));
+
+    const resize = () => {
+      const r = canvas.parentElement.getBoundingClientRect();
+      const w = Math.max(1, Math.round(r.width / PX)), h = Math.max(1, Math.round(r.height / PX));
+      renderer.setPixelRatio(1); renderer.setSize(w, h, false);
+      uniforms.uRes.value.set(w, h);
+    };
+    resize();
+    const ro = new ResizeObserver(resize); ro.observe(canvas.parentElement);
+
+    // Pointer: spring-smoothed position; amplitude rises with speed and decays.
+    const target = { x: -999, y: -999 }, pos = { x: -999, y: -999 }, vel = { x: 0, y: 0 };
+    let amp = 0, lastMove = 0, hasPointer = false;
+    const onMove = (e) => {
+      const now = performance.now(); if (now - lastMove < 16) return; lastMove = now; // throttle
+      const r = canvas.getBoundingClientRect();
+      const x = (e.clientX - r.left) / PX, y = (r.height - (e.clientY - r.top)) / PX;
+      if (!hasPointer) { pos.x = x; pos.y = y; hasPointer = true; }
+      target.x = x; target.y = y; amp = Math.min(1, amp + 0.25);
+    };
+    const onLeave = () => { amp = 0; hasPointer = false; };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    document.addEventListener('pointerleave', onLeave);
+    window.addEventListener('blur', onLeave);
+
+    let running = false, visible = true, raf = 0, last = performance.now(), time = 0;
+    const loop = (now) => {
+      raf = requestAnimationFrame(loop);
+      const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
+      // critically damped spring toward the pointer (response ~0.35s)
+      const k = 120, c = 2 * Math.sqrt(k);
+      vel.x += (k * (target.x - pos.x) - c * vel.x) * dt; vel.y += (k * (target.y - pos.y) - c * vel.y) * dt;
+      pos.x += vel.x * dt; pos.y += vel.y * dt;
+      amp *= Math.pow(0.35, dt); // decay
+      uniforms.uTime.value = time; uniforms.uMouse.value.set(pos.x, pos.y);
+      uniforms.uAmp.value += (Math.max(amp, hasPointer ? 0.35 : 0) - uniforms.uAmp.value) * Math.min(1, dt * 6);
+      // ease the dither colors toward the current accent (no per-frame allocation)
+      tgt.set(accent.hex); uniforms.uEmber.value.lerp(tgt, Math.min(1, dt * 2.2));
+      tgt.lerp(INK, 0.78); uniforms.uDim.value.lerp(tgt, Math.min(1, dt * 2.2));
+      renderer.render(scene, camera);
+    };
+    const start = () => { if (running || !visible || document.hidden) return; running = true; last = performance.now(); raf = requestAnimationFrame(loop); };
+    const stop = () => { running = false; cancelAnimationFrame(raf); };
+    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; visible ? start() : stop(); }, { threshold: 0 });
+    io.observe(canvas);
+    const onVis = () => (document.hidden ? stop() : start());
+    document.addEventListener('visibilitychange', onVis);
+
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); stop(); canvas.classList.remove('is-live'); });
+    canvas.addEventListener('webglcontextrestored', () => { canvas.classList.add('is-live'); start(); });
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(() => canvas.classList.add('is-live'));
+    start();
+
+    return () => {
+      stop(); io.disconnect(); ro.disconnect();
+      window.removeEventListener('pointermove', onMove); document.removeEventListener('pointerleave', onLeave);
+      window.removeEventListener('blur', onLeave); document.removeEventListener('visibilitychange', onVis);
+      geo.dispose(); material.dispose(); renderer.dispose();
+    };
+  }
+  const disposeField = initField();
+  if (disposeField) cleanups.push(disposeField);
+
+  /* ---------- Easter egg: keep scrolling past the end (or type "eien") ---------- */
+  (function easterEgg() {
+    const egg = document.querySelector('[data-egg]'), pull = document.querySelector('[data-pull]');
+    const bar = pull.querySelector('[data-pull-bar]'), txt = pull.querySelector('[data-pull-txt]');
+    const en = egg.querySelector('[data-egg-en]'), zh = egg.querySelector('[data-egg-zh]'), sys = egg.querySelector('[data-egg-sys]');
+    const closeBtn = egg.querySelector('[data-egg-close]'), cvs = egg.querySelector('[data-egg-rain]');
+    const EN = en.textContent, ZH = zh.textContent, SYS = sys.textContent;
+    const ASCII = '!<>-_\\/[]{}=+*^?#%$01', CJK = '唯有变化永恒零壹序码虚空界光影流转';
+    const BARN = 12;
+    let p = 0, idle = 0, decayRaf = 0, isOpen = false, cool = 0, opener = null, glitchId = 0, ambientId = 0;
+    const atBottom = () => innerHeight + scrollY >= document.documentElement.scrollHeight - 4;
+
+    // progress pill follows the pull 1:1 (continuous feedback, not just at the end)
+    const render = () => {
+      const n = Math.round(p * BARN);
+      bar.textContent = '[' + '█'.repeat(n) + '░'.repeat(BARN - n) + ']';
+      txt.textContent = p >= 1 ? 'access granted' : p < 0.12 ? 'keep scrolling' : 'decrypting ' + Math.round(p * 100) + '%';
+      const k = Math.min(1, p * 3);
+      pull.style.opacity = String(k);
+      pull.style.transform = `translate(-50%,${(1 - k) * 140}%)`;
+    };
+    const decay = () => {
+      cancelAnimationFrame(decayRaf);
+      const step = () => { p *= 0.86; if (p < 0.004) p = 0; render(); if (p > 0) decayRaf = requestAnimationFrame(step); };
+      decayRaf = requestAnimationFrame(step);
+    };
+    const add = (d) => {
+      if (isOpen || performance.now() < cool || !atBottom()) return;
+      cancelAnimationFrame(decayRaf);
+      p = Math.min(1, p + d * (1 - p * 0.35)); // a little resistance as it fills
+      render();
+      clearTimeout(idle);
+      if (p >= 1) { setTimeout(open, 160); return; }
+      idle = setTimeout(decay, 550);
+    };
+
+    // input: wheel / trackpad, touch, keyboard
+    addEventListener('wheel', (e) => { if (isOpen) { if (e.deltaY < -12) close(); return; } if (e.deltaY > 0) add(Math.min(e.deltaY, 120) / 1100); }, { passive: true });
+    let ty = null;
+    addEventListener('touchstart', (e) => { ty = e.touches[0].clientY; }, { passive: true });
+    addEventListener('touchmove', (e) => {
+      if (ty === null) return; const y = e.touches[0].clientY, dy = ty - y; ty = y;
+      if (dy > 0) add(dy / 520);
+    }, { passive: true });
+    let typed = '';
+    addEventListener('keydown', (e) => {
+      if (isOpen) { if (e.key === 'Escape') close(); return; }
+      if (['ArrowDown', 'PageDown', 'End', ' '].includes(e.key)) add(0.22);
+      if (e.key.length === 1 && !/input|textarea/i.test(document.activeElement.tagName)) {
+        typed = (typed + e.key.toLowerCase()).slice(-4);
+        if (typed === 'eien') { typed = ''; open(); }
+      }
+    });
+
+    // decode: random glyphs resolve left to right
+    const scramble = (el, final, pool, dur) => new Promise(res => {
+      if (reduce) { el.textContent = final; return res(); }
+      const t0 = performance.now();
+      const esc = (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c);
+      const frame = (now) => {
+        if (!isOpen) return res();
+        const k = Math.min(1, (now - t0) / dur), shown = Math.floor(k * final.length);
+        el.innerHTML = [...final].map((ch, i) => (i < shown || ch === ' ') ? esc(ch)
+          : '<span class="scr">' + esc(pool[(Math.random() * pool.length) | 0]) + '</span>').join('');
+        if (k < 1) requestAnimationFrame(frame); else { el.textContent = final; HS.split(el); res(); }
+      };
+      requestAnimationFrame(frame);
+    });
+    const glitch = (el) => { if (reduce) return; el.classList.remove('is-glitch'); void el.offsetWidth; el.classList.add('is-glitch'); setTimeout(() => el.classList.remove('is-glitch'), 360); };
+
+    // code rain in the current accent color
+    let rainRaf = 0, cols = [], cw = 16, last = 0;
+    const g = cvs.getContext('2d');
+    const sizeRain = () => {
+      const dpr = Math.min(1.5, devicePixelRatio || 1);
+      cvs.width = innerWidth * dpr; cvs.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cw = innerWidth < 600 ? 13 : 16;
+      cols = Array.from({ length: Math.ceil(innerWidth / cw) }, () => Math.random() * -innerHeight / cw);
+      g.fillStyle = '#060607'; g.fillRect(0, 0, innerWidth, innerHeight);
+    };
+    const RAIN = '01ABCDEF<>/{}#$%*+=' + CJK;
+    const rain = (now) => {
+      rainRaf = requestAnimationFrame(rain);
+      if (now - last < 40) return; last = now;          // ~25fps is plenty for rain
+      g.fillStyle = 'rgba(6,6,7,0.14)'; g.fillRect(0, 0, innerWidth, innerHeight);
+      g.font = `500 ${cw - 2}px "Geist Mono", ui-monospace, monospace`;
+      for (let i = 0; i < cols.length; i++) {
+        const y = cols[i] * cw;
+        g.fillStyle = Math.random() < 0.08 ? '#ffffff' : accent.hex;
+        g.fillText(RAIN[(Math.random() * RAIN.length) | 0], i * cw, y);
+        cols[i] = y > innerHeight && Math.random() > 0.975 ? 0 : cols[i] + 1;
+      }
+    };
+
+    function open() {
+      if (isOpen) return; isOpen = true;
+      clearTimeout(idle); cancelAnimationFrame(decayRaf); p = 0; render();
+      opener = document.activeElement;
+      typeof pickAccent === 'function' && pickAccent();
+      en.textContent = ''; zh.textContent = ''; sys.textContent = '';
+      egg.hidden = false; void egg.offsetWidth;            // commit the closed state, then splash open
+      egg.classList.add('is-open', 'burst');
+      setTimeout(() => egg.classList.remove('burst'), 900);
+      document.body.style.overflow = 'hidden'; lenis && lenis.stop();
+      if (!reduce) { sizeRain(); cancelAnimationFrame(rainRaf); rainRaf = requestAnimationFrame(rain); addEventListener('resize', sizeRain); }
+      closeBtn.focus({ preventScroll: true });
+      (async () => {
+        await new Promise(r => setTimeout(r, reduce ? 0 : 380));
+        await scramble(sys, SYS, ASCII, 420);
+        glitch(en); await scramble(en, EN, ASCII, 1100);
+        glitch(zh); await scramble(zh, ZH, CJK, 700);
+        if (!isOpen) return;
+        clearInterval(glitchId);
+        glitchId = setInterval(() => { if (document.hidden) return; glitch(Math.random() < 0.65 ? en : zh); }, 2600);
+        clearInterval(ambientId);
+        ambientId = setInterval(() => {          // constant low-level scramble, no cursor needed
+          if (document.hidden) return;
+          HS.poke(en, 1, 260);
+          if (Math.random() < 0.5) HS.poke(zh, 1, 340);
+          if (Math.random() < 0.18) HS.poke(en, 4, 140); // occasional burst
+        }, 110);
+      })();
+    }
+    function close() {
+      if (!isOpen) return; isOpen = false;
+      clearInterval(glitchId); clearInterval(ambientId); cool = performance.now() + 900;
+      egg.classList.remove('is-open', 'burst');
+      document.body.style.overflow = ''; lenis && lenis.start();
+      setTimeout(() => { if (!isOpen) { egg.hidden = true; cancelAnimationFrame(rainRaf); removeEventListener('resize', sizeRain); } }, 480);
+      opener && opener.focus && opener.focus({ preventScroll: true });
+    }
+    closeBtn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    egg.addEventListener('click', close);
+    egg.addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); closeBtn.focus(); } }); // keep focus inside
+    cleanups.push(() => { cancelAnimationFrame(rainRaf); clearInterval(glitchId); clearInterval(ambientId); });
+  })();
+
+  document.querySelectorAll('[data-hero-meta] b, [data-hero-lede], .tk-word, [data-egg-en], [data-egg-zh]').forEach(HS.prepare);
+
+  /* ---------- Nav state (works with or without GSAP) ---------- */
+  const nav = document.getElementById('nav');
+  let lastY = window.scrollY;
+  const onScrollNav = (y) => {
+    nav.classList.toggle('is-scrolled', y > 40);
+    const goingDown = y > lastY;
+    nav.classList.toggle('is-hidden', goingDown && y > 300 && !sheet.classList.contains('is-open'));
+    lastY = y;
+  };
+
+  // Active section in nav
+  const links = [...document.querySelectorAll('.nav-links a')];
+  const secIO = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('is-active', a.getAttribute('href') === '#' + e.target.id)); });
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  document.querySelectorAll('main section[id]').forEach(s => secIO.observe(s));
+  cleanups.push(() => secIO.disconnect());
+
+
+  if (!hasGSAP) {
+    HS.prepare(document.querySelector('.hero-name'));
+    window.addEventListener('scroll', () => onScrollNav(window.scrollY), { passive: true });
+    return;
+  }
+
+  /* ================= GSAP ================= */
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Lenis: the only smooth-scroll engine. Skipped under reduced motion.
+  if (!reduce && window.Lenis) {
+    lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
+    lenis.on('scroll', (e) => { ScrollTrigger.update(); onScrollNav(e.scroll); });
+    const raf = (t) => lenis.raf(t * 1000);
+    gsap.ticker.add(raf); gsap.ticker.lagSmoothing(0);
+    cleanups.push(() => { gsap.ticker.remove(raf); lenis.destroy(); });
+    document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', (e) => {
+      const id = a.getAttribute('href'); const el = id === '#top' ? document.body : document.querySelector(id);
+      if (!el) return; e.preventDefault();
+      lenis.scrollTo(el, { offset: id === '#top' ? 0 : -16, duration: 1.4, easing: (t) => 1 - Math.pow(1 - t, 4) });
+      if (id !== '#top') history.replaceState(null, '', id);
+    }));
+  } else {
+    window.addEventListener('scroll', () => onScrollNav(window.scrollY), { passive: true });
+  }
+
+  const headings = document.querySelectorAll('[data-split]');
+  const heroName = document.querySelector('.hero-name');
+
+  if (reduce) {
+    // Final states immediately; no scrub, no slides.
+    document.querySelectorAll('[data-reveal]').forEach(el => (el.style.opacity = 1));
+    return;
+  }
+
+  /* ---------- Hero intro ---------- */
+  const heroWords = splitWords(heroName);
+  HS.prepare(heroName.querySelector('.split-words'));
+  gsap.set(heroWords, { yPercent: 105 });
+  heroName.style.visibility = 'visible';
+  const intro = gsap.timeline({ defaults: { ease: 'expo.out' } });
+  intro
+    .to(heroWords, { yPercent: 0, duration: 1.15, stagger: 0.09 }, 0.1)
+    .from('[data-hero-meta] > div', { opacity: 0, y: 12, duration: 0.8, stagger: 0.06 }, 0.35)
+    .from('[data-hero-lede]', { opacity: 0, y: 16, duration: 0.9 }, 0.5);
+
+  // Hero name drifts up and fades as you leave — depth, not decoration.
+  gsap.to('.hero-name', {
+    yPercent: -18, opacity: 0.25, ease: 'none',
+    scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true }
+  });
+
+  /* ---------- Section headings: word-by-word ---------- */
+  headings.forEach(h => {
+    const words = splitWords(h);
+    gsap.set(words, { yPercent: 105 });
+    ScrollTrigger.create({
+      trigger: h, start: 'top 85%', once: true,
+      onEnter: () => gsap.to(words, { yPercent: 0, duration: 1, ease: 'expo.out', stagger: 0.06 })
+    });
+  });
+
+  /* ---------- About statement: lights up as you read ---------- */
+  const statement = document.querySelector('[data-scrub]');
+  if (statement) {
+    const words = splitWords(statement);
+    gsap.fromTo(words, { opacity: 0.16 }, {
+      opacity: 1, ease: 'none', stagger: 0.05,
+      scrollTrigger: { trigger: statement, start: 'top 78%', end: 'bottom 52%', scrub: 0.6 }
+    });
+  }
+
+  /* ---------- Staggered lists ---------- */
+  document.querySelectorAll('[data-stagger]').forEach(list => {
+    const items = list.children;
+    gsap.set(items, { opacity: 0, y: 24 });
+    ScrollTrigger.create({
+      trigger: list, start: 'top 85%', once: true,
+      onEnter: () => gsap.to(items, { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.06, clearProps: 'transform' })
+    });
+  });
+  document.querySelectorAll('[data-reveal]').forEach(el => {
+    gsap.set(el, { y: 20 });
+    ScrollTrigger.create({ trigger: el, start: 'top 88%', once: true,
+      onEnter: () => gsap.to(el, { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out' }) });
+  });
+
+  /* ---------- Ticker: drifts on its own, speeds up and follows scroll direction ---------- */
+  const ticker = document.querySelector('[data-ticker]');
+  if (ticker) {
+    const rows = [...ticker.querySelectorAll('.tk-row')].map(row => ({
+      track: row.querySelector('.tk-track'), dir: +row.dataset.dir, x: 0, w: 0
+    }));
+    const measure = () => rows.forEach(r => (r.w = r.track.firstElementChild.getBoundingClientRect().width));
+    measure(); window.addEventListener('resize', measure);
+    rows.forEach(r => { if (r.dir > 0) r.x = -r.w; });
+    let inView = false, flow = 1, boost = 0;
+    const tio = new IntersectionObserver(([e]) => (inView = e.isIntersecting)); tio.observe(ticker);
+    const BASE = 40; // px/s idle drift
+    const step = (time, dtMs) => {
+      if (!inView || document.hidden) return;
+      const v = lenis ? lenis.velocity : ScrollTrigger.getVelocity() / 60;
+      if (Math.abs(v) > 0.3) flow = Math.sign(v);          // follow scroll direction
+      boost += (Math.min(Math.abs(v) * 40, 900) - boost) * 0.12; // ease toward scroll speed
+      const dt = Math.min(dtMs, 50) / 1000;
+      rows.forEach(r => {
+        r.x += r.dir * flow * (BASE + boost) * dt;
+        if (r.x <= -r.w) r.x += r.w; else if (r.x > 0) r.x -= r.w; // seamless wrap
+        r.track.style.transform = `translate3d(${r.x}px,0,0)`;
+      });
+    };
+    gsap.ticker.add(step);
+    cleanups.push(() => { gsap.ticker.remove(step); tio.disconnect(); window.removeEventListener('resize', measure); });
+
+    /* Hacker decode: scramble a word into symbols, then resolve left to right.
+       Both copies of a word (the seamless-loop twins) decode together. */
+    const GLYPHS = '!<>-_\\/[]{}=+*^?#%$01';
+    const esc = (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c);
+    const pairs = [...ticker.querySelectorAll('.tk-row')].flatMap(row => {
+      const groups = row.querySelectorAll('.tk-group');
+      const a = groups[0].querySelectorAll('.tk-item'), b = groups[1].querySelectorAll('.tk-item');
+      return [...a].map((el, i) => [el, b[i]]);
+    });
+    const busy = new WeakSet();
+    const decode = (pair, dur = 650) => {
+      if (busy.has(pair)) return; busy.add(pair);
+      const words = pair.map(el => el.querySelector('.tk-word'));
+      const final = words[0].dataset.text;
+      pair.forEach(el => el.classList.add('is-glitch'));
+      setTimeout(() => pair.forEach(el => el.classList.remove('is-glitch')), 330);
+      const t0 = performance.now();
+      const frame = (now) => {
+        const p = Math.min(1, (now - t0) / dur);
+        const shown = Math.floor(p * final.length);
+        const html = [...final].map((ch, i) => (i < shown || ch === ' ') ? esc(ch)
+          : '<span class="g">' + esc(GLYPHS[(Math.random() * GLYPHS.length) | 0]) + '</span>').join('');
+        words.forEach(w => (w.innerHTML = html));
+        if (p < 1) requestAnimationFrame(frame);
+        else { words.forEach(w => { w.textContent = final; HS.split(w); }); busy.delete(pair); }
+      };
+      requestAnimationFrame(frame);
+    };
+    // First time the ticker shows: every word decodes in a quick cascade.
+    ScrollTrigger.create({ trigger: ticker, start: 'top 90%', once: true,
+      onEnter: () => pairs.forEach((pr, i) => setTimeout(() => decode(pr, 500 + Math.random() * 400), i * 70)) });
+    // After that: random glitches, more often while scrolling fast.
+    let since = 0;
+    const glitchTick = (t, dtMs) => {
+      if (!inView || document.hidden) return;
+      since += dtMs;
+      const every = Math.max(220, 1500 - boost * 2);
+      if (since > every) { since = 0; decode(pairs[(Math.random() * pairs.length) | 0]); }
+    };
+    gsap.ticker.add(glitchTick);
+    cleanups.push(() => gsap.ticker.remove(glitchTick));
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+  }
+
+  /* ---------- GitHub language bar: segments grow, numbers count up ---------- */
+  const gh = document.querySelector('[data-gh]');
+  if (gh) {
+    const segs = gh.querySelectorAll('.gh-bar i');
+    const nums = gh.querySelectorAll('[data-count]');
+    gsap.set(segs, { scaleX: 0 });
+    ScrollTrigger.create({ trigger: gh, start: 'top 85%', once: true, onEnter: () => {
+      gsap.to(segs, { scaleX: 1, duration: 1.1, ease: 'expo.out', stagger: 0.05 });
+      nums.forEach(n => {
+        const end = parseFloat(n.dataset.count), o = { v: 0 };
+        gsap.to(o, { v: end, duration: 1.2, ease: 'power3.out', onUpdate: () => (n.textContent = o.v.toFixed(2) + '%') });
+      });
+    }});
+  }
+
+  /* ---------- Magnetic buttons (fine pointers only) ---------- */
+  if (finePointer) {
+    document.querySelectorAll('[data-magnetic]').forEach(btn => {
+      const xTo = gsap.quickTo(btn, 'x', { duration: 0.5, ease: 'power3.out' });
+      const yTo = gsap.quickTo(btn, 'y', { duration: 0.5, ease: 'power3.out' });
+      btn.addEventListener('pointermove', (e) => {
+        const r = btn.getBoundingClientRect();
+        xTo((e.clientX - r.left - r.width / 2) * 0.25);
+        yTo((e.clientY - r.top - r.height / 2) * 0.35);
+      });
+      btn.addEventListener('pointerleave', () => { xTo(0); yTo(0); });
+    });
+  }
+
+  /* ---------- Re-measure after fonts/images ---------- */
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => ScrollTrigger.refresh());
+  window.addEventListener('load', () => ScrollTrigger.refresh());
+
+  window.addEventListener('pagehide', () => {
+    cleanups.forEach(fn => { try { fn(); } catch {} });
+    ScrollTrigger.getAll().forEach(t => t.kill());
+  });
+})();
+</script>
+</body>
+</html>
