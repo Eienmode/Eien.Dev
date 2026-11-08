@@ -758,12 +758,6 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
           <h3 class="pc-name">Jan Saquilayan</h3>
           <p class="pc-role mono">Software Engineer at <span>UNIA LLC</span></p>
           <p class="pc-bio">Software engineer focused on native development, Unity game development and reverse engineering. BS Information Technology at De La Salle University–Dasmariñas.</p>
-          <ul class="pc-links">
-            <li><a href="mailto:jan.saquilayan019@gmail.com" aria-label="Email" title="Email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a></li>
-            <li><a href="https://github.com/Eienmode" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li>
-            <li><a href="https://www.instagram.com/eieneeeee/" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg></a></li>
-            <li><button type="button" data-copy="eienee" aria-label="Copy Discord username eienee" title="Discord: eienee (click to copy)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 16.5c-1.8-.4-3.3-1-4.5-1.9C3.8 10.4 4.9 7 7 4.8c1.1-.5 2.2-.8 3.3-1l.5 1.1a12 12 0 0 1 2.4 0l.5-1.1c1.1.2 2.2.5 3.3 1 2.1 2.2 3.2 5.6 3 9.8-1.2.9-2.7 1.5-4.5 1.9l-1-1.6"/><path d="M8 14.3c2.6 1.2 5.4 1.2 8 0"/><circle cx="9.3" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="14.7" cy="11" r="1" fill="currentColor" stroke="none"/></svg></button></li>
-          </ul>
         </div>
         <figure class="pc-photo" data-pc-photo><img src="assets/portrait.jpg" alt="Portrait of Jan Saquilayan" width="800" height="1000" loading="lazy" decoding="async" onerror="this.closest('[data-pc-photo]').remove()"></figure>
       </header>
@@ -1219,7 +1213,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
       ctx.translate(P, P);
-      const step = cell + gap, R = 70, rad = cell * 0.22;
+      const step = cell + gap, R = 160, rad = cell * 0.22; // R = hover spotlight radius (px)
       const lit = [];
       for (let i = 0; i < cells.length; i++) {
         const c = cells[i];
