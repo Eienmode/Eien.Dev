@@ -35,7 +35,7 @@
     document.documentElement.classList.add('booting');
     setTimeout(function () {
       var r = document.documentElement;
-      if (r.classList.contains('booting')) { r.classList.remove('booting'); var b = document.querySelector('[data-boot]'); b && b.remove(); window.__bootDone = true; dispatchEvent(new Event('boot:done')); }
+      if (r.classList.contains('booting')) { r.classList.remove('booting'); document.querySelectorAll('.bld,.bld-bar,.bld-skip').forEach(function (n) { n.remove(); }); window.__bootDone = true; dispatchEvent(new Event('boot:done')); }
     }, 7000);
   })();
 </script>
@@ -72,36 +72,19 @@ html{-webkit-text-size-adjust:100%;color-scheme:dark}
 /* No native page scrollbar (no gutter, no edge cut, and locking scroll never changes the width).
    A slim floating thumb (.sbar) is drawn over the page instead. */
 html{background:var(--ink);scrollbar-width:none}
-/* ---------- Boot intro ---------- */
-.boot{display:none}
-html.booting{overflow:hidden}
-html.booting .boot{display:block;position:fixed;inset:0;z-index:200;cursor:pointer;color:var(--bone)}
-.boot-half{position:absolute;left:0;right:0;height:50.5%;background:#0c0c0d;transition:transform 850ms cubic-bezier(0.77,0,0.175,1)}
-.boot-top{top:0}.boot-bot{bottom:0}
-.boot-rain{position:absolute;inset:0;width:100%;height:100%;opacity:.8;transition:opacity 300ms ease}
-.boot-core{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;text-align:center;padding:0 1.25rem;transition:opacity 300ms ease,transform 600ms cubic-bezier(0.23,1,0.32,1)}
-.boot-sys{margin:0 0 1.2rem;color:var(--ember);font-size:.74rem;text-transform:none;letter-spacing:.02em}
-.boot-mark{margin:0;font:600 clamp(2.6rem,9vw,7rem)/1 var(--display);letter-spacing:-.045em;white-space:nowrap;
-  text-shadow:0 0 30px color-mix(in srgb,var(--ember) 45%,transparent)}
-.boot-mark .bs,.boot-jp .bs{color:var(--ember);font-family:var(--mono);font-weight:400}
-.boot-mark.glitch{text-shadow:-3px 0 var(--ember),3px 0 #7dd3fc;transform:translateX(2px) skewX(-6deg)}
-.boot-jp{margin:.9rem 0 0;font-size:clamp(1rem,2.2vw,1.5rem);letter-spacing:.6em;padding-left:.6em;color:#a9a5a0;
-  font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic","Noto Sans JP",var(--display)}
-.boot-bar{width:min(320px,70vw);height:2px;margin:2rem 0 .7rem;background:#26262b;overflow:hidden;border-radius:2px}
-.boot-bar i{display:block;height:100%;background:var(--ember);transform-origin:left;transform:scaleX(0)}
-.boot-pct{margin:0;color:var(--mute);font-size:.72rem;text-transform:none;font-variant-numeric:tabular-nums}
-.boot-state{margin-left:.8rem;color:var(--bone)}
-.boot-log{position:absolute;left:var(--pad,1.25rem);bottom:1.4rem;font-size:.7rem;line-height:1.7;color:var(--mute);text-transform:none;text-align:left;transition:opacity 300ms ease}
-.boot-log b{color:var(--ember);font-weight:400;margin-right:.4rem}
-.boot-log i{font-style:normal;color:#5b5b63}.boot-log em{font-style:normal;color:var(--ember)}
-.boot-skip{position:absolute;right:var(--pad,1.25rem);bottom:1.4rem;font-size:.66rem;color:#55555c;text-transform:none}
-.boot .mono{text-transform:none} /* terminal output stays lowercase (beats the shared .mono rule) */
-.boot.is-out{pointer-events:none}
-.boot.is-out .boot-core{opacity:0;transform:scale(.97)}
-.boot.is-out .boot-rain,.boot.is-out .boot-log,.boot.is-out .boot-skip{opacity:0}
-.boot.is-out .boot-top{transform:translateY(-100%)}
-.boot.is-out .boot-bot{transform:translateY(100%)}
-@media (max-width:600px){.boot-log{font-size:.62rem;bottom:3.2rem}.boot-skip{left:var(--pad,1.25rem);right:auto;bottom:1.2rem}}
+/* ---------- Boot intro: the page is "built" live by cursor agents ---------- */
+html.booting :is(.nav .brand,.nav-links li,.nav-meta,[data-hero-meta]>div,.hero-lede,.cta-row .btn,.scroll-cue,.hero-visual){opacity:0}
+html.booting .b-in{opacity:1!important;transition:opacity 260ms ease}
+html.booting .hero-visual.b-in{transition:opacity 900ms ease}
+.bld{position:fixed;inset:0;width:100%;height:100%;z-index:150;pointer-events:none}
+.bld-bar{position:fixed;left:50%;bottom:1.1rem;z-index:151;transform:translateX(-50%);display:flex;gap:.7rem;align-items:center;white-space:nowrap;
+  padding:.45rem .85rem;border:1px solid #2a2a30;border-radius:8px;background:rgba(12,12,13,.86);font:400 .68rem/1 var(--mono);color:#8b8b93;
+  transition:opacity 400ms ease,transform 400ms ease}
+.bld-bar b{color:var(--bone);font-weight:400}.bld-bar i{font-style:normal;color:var(--ember)}
+.bld-bar .sq{display:inline-flex;gap:3px}.bld-bar .sq span{width:6px;height:6px;border-radius:1px;background:var(--c)}
+.bld-bar.is-out{opacity:0;transform:translate(-50%,8px)}
+.bld-skip{position:fixed;right:1.1rem;bottom:1.25rem;z-index:151;font:400 .62rem var(--mono);color:#55555c;pointer-events:auto;cursor:pointer;background:none;border:0;padding:.3rem}
+@media (max-width:600px){.bld-bar{bottom:3rem;font-size:.6rem}.bld-skip{right:auto;left:50%;transform:translateX(-50%);bottom:1rem}}
 html::-webkit-scrollbar{display:none}
 .sbar{position:fixed;top:0;right:0;width:14px;height:100%;z-index:80;pointer-events:none}
 .sbar i{position:absolute;top:0;right:3px;width:4px;border-radius:4px;pointer-events:auto;cursor:grab;touch-action:none;
@@ -784,101 +767,6 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 </style>
 </head>
 <body>
-<!-- ================= BOOT INTRO (first open per session) ================= -->
-<div class="boot" data-boot aria-hidden="true">
-  <div class="boot-half boot-top"></div><div class="boot-half boot-bot"></div>
-  <canvas class="boot-rain" data-boot-rain></canvas>
-  <div class="boot-core">
-    <p class="boot-sys mono">&gt; build --target eien.dev</p>
-    <p class="boot-mark" data-boot-mark>eien.dev</p>
-    <p class="boot-jp" data-boot-jp>永遠</p>
-    <div class="boot-bar"><i data-boot-bar></i></div>
-    <p class="boot-pct mono"><span data-boot-pct>000</span>%<span class="boot-state" data-boot-state>compiling</span></p>
-  </div>
-  <div class="boot-log mono" data-boot-log></div>
-  <span class="boot-skip mono">click / any key to skip</span>
-</div>
-<script>
-/* Boot intro: plain DOM text + one low-res canvas at ~24fps; exit is transform/opacity only. */
-(function () {
-  var root = document.documentElement, el = document.querySelector('[data-boot]');
-  if (!el) return;
-  if (!root.classList.contains('booting')) { el.remove(); window.__bootDone = true; return; }
-  var mark = el.querySelector('[data-boot-mark]'), jp = el.querySelector('[data-boot-jp]'), bar = el.querySelector('[data-boot-bar]'),
-      pct = el.querySelector('[data-boot-pct]'), state = el.querySelector('[data-boot-state]'), log = el.querySelector('[data-boot-log]'),
-      cv = el.querySelector('[data-boot-rain]'), g = cv.getContext('2d');
-  var JP = '永遠変化光影流転界序零壹虚空桜花夢心道アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン',
-      CODE = '0123456789ABCDEF{}[]<>/=#$%*+;:_|', POOL = JP + CODE;
-  var MARK = 'eien.dev', KANJI = '永遠';
-  var LINES = ['init runtime', 'mount ./index.html', 'load gsap@3 · lenis · three', 'compile shader: dither.frag', 'fetch github/contributions',
-               'build sections 01..06', 'grow sakura.canvas', 'link assets/logos/*', 'resolve 永遠 → eternity', 'build ok'];
-  var pick = function (s) { return s[(Math.random() * s.length) | 0]; };
-  var hex = function () { return (Math.random() * 0xffff | 0).toString(16).padStart(4, '0'); };
-  var esc = function (c) { return c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c; };
-  var accent = '', t0 = performance.now(), MIN = 2100, MAX = 3400, raf = 0, last = 0, li = 0, done = false, cols = [], cw = 16, W = 0, H = 0;
-
-  function size() {
-    W = innerWidth; H = innerHeight; cw = W < 600 ? 14 : 18;
-    cv.width = Math.ceil(W / 1); cv.height = Math.ceil(H / 1);       // 1x on purpose: cheap on every screen
-    cols = []; for (var i = 0; i < Math.ceil(W / cw); i++) cols.push(Math.random() * (H / cw) * 0.6 - 6); // start on screen, staggered
-    g.fillStyle = '#0c0c0d'; g.fillRect(0, 0, W, H);
-  }
-  size(); addEventListener('resize', size);
-
-  function scramble(target, k) {           // resolve left to right with JP/code noise
-    var n = Math.floor(k * (target.length + 1)), out = '';
-    for (var i = 0; i < target.length; i++) out += i < n ? esc(target[i]) : '<span class="bs">' + esc(pick(POOL)) + '</span>';
-    return out;
-  }
-  function frame(now) {
-    raf = requestAnimationFrame(frame);
-    if (now - last < 41) return;           // ~24fps is plenty and keeps low-end devices cool
-    last = now;
-    var t = now - t0, ready = document.readyState !== 'loading';
-    var p = Math.min(1, t / MIN); if (!ready) p = Math.min(p, 0.9);
-    // rain of glyphs (faint), one per column per frame
-    g.fillStyle = 'rgba(12,12,13,0.18)'; g.fillRect(0, 0, W, H);
-    g.font = '500 ' + (cw - 4) + 'px "Geist Mono", ui-monospace, monospace';
-    if (!accent || Math.random() < 0.04) accent = getComputedStyle(root).getPropertyValue('--ember').trim() || '#d946ef'; // read rarely, not per frame
-    for (var i = 0; i < cols.length; i++) {
-      var y = cols[i] * cw, r = Math.random();
-      g.fillStyle = r < 0.06 ? '#ffffff' : r < 0.5 ? accent : '#3a3a40';
-      g.globalAlpha = r < 0.06 ? 0.8 : 0.45;
-      g.fillText(pick(POOL), i * cw, y);
-      cols[i] = y > H && Math.random() > 0.96 ? 0 : cols[i] + 1;
-    }
-    g.globalAlpha = 1;
-    // wordmark + kanji decode, then glitch now and then
-    mark.innerHTML = p < 0.85 ? scramble(MARK, Math.max(0, (p - 0.1) / 0.75)) : MARK;
-    jp.innerHTML = p < 0.95 ? scramble(KANJI, Math.max(0, (p - 0.45) / 0.5)) : KANJI;
-    if (Math.random() < 0.12) { mark.classList.add('glitch'); setTimeout(function () { mark.classList.remove('glitch'); }, 90); }
-    // progress + build log
-    bar.style.transform = 'scaleX(' + p.toFixed(3) + ')';
-    pct.textContent = String(Math.round(p * 100)).padStart(3, '0');
-    while (li < LINES.length && p >= li / (LINES.length - 1) * 0.98) {
-      var line = document.createElement('div');
-      line.innerHTML = '<b>0x' + hex() + '</b> ' + LINES[li] + (li === LINES.length - 1 ? ' <em>✓</em>' : ' <i>…ok</i>');
-      log.appendChild(line); if (log.children.length > 7) log.removeChild(log.firstChild);
-      li++;
-    }
-    if ((p >= 1 && t >= MIN) || t > MAX) finish();
-  }
-  function finish() {
-    if (done) return; done = true;
-    state.textContent = 'ready'; mark.textContent = MARK; jp.textContent = KANJI;
-    try { sessionStorage.setItem('eien-boot', '1'); } catch (e) {}
-    el.classList.add('is-out');                         // content fades, the two halves slide apart
-    window.__bootDone = true; dispatchEvent(new Event('boot:done'));
-    setTimeout(function () {
-      cancelAnimationFrame(raf); removeEventListener('resize', size);
-      root.classList.remove('booting'); el.remove();
-    }, 950);
-  }
-  var skip = function () { if (!done) finish(); };
-  el.addEventListener('pointerdown', skip); addEventListener('keydown', skip, { once: true });
-  raf = requestAnimationFrame(frame);
-})();
-</script>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="nav" id="nav">
@@ -948,6 +836,155 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     </div>
   </div>
 </section>
+
+<script>
+/* Boot intro: cursor "agents" fly in, draw wireframes and build the real nav + hero in place.
+   One transparent canvas (<= 1.5x DPR) + class toggles on real elements. Skippable, once per session. */
+(function () {
+  var root = document.documentElement;
+  if (!root.classList.contains('booting')) { window.__bootDone = true; return; }
+  var JP = '永遠変化光影流転界序零壹虚空桜花夢心アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモラリルレロワン';
+  var CODE = '0123456789ABCDEF{}[]<>/=#$%*+;:_|';
+  var COLS = ['#f472b6', '#7dd3fc', '#86efac', '#fcd34d', '#c4b5fd', '#fda4af'], WIRE = '#4f8cff';
+  var pick = function (s) { return s[(Math.random() * s.length) | 0]; };
+
+  // ---- targets, in build order: [selector, tag, kind]
+  var PLAN = [
+    ['.nav .brand', '<a> 永', 'text'], ['.nav-links li', '<li>', 'text'], ['.nav-meta', '<div> 時', 'text'],
+    ['.hero-visual', '<canvas> 光', 'fade'], ['[data-hero-meta]>div', '<dl>', 'text'],
+    ['.hero-name', '<h1> 名', 'hero'], ['.hero-lede', '<p> 文', 'text'], ['.cta-row .btn', '<a> →', 'text'], ['.scroll-cue', '<i> ↓', 'fade']
+  ];
+  var jobs = [];
+  PLAN.forEach(function (p) { document.querySelectorAll(p[0]).forEach(function (el) { jobs.push({ el: el, tag: p[1], kind: p[2] }); }); });
+
+  // ---- canvas + status bar
+  var cv = document.createElement('canvas'); cv.className = 'bld'; cv.setAttribute('aria-hidden', 'true');
+  var bar = document.createElement('div'); bar.className = 'bld-bar'; bar.setAttribute('aria-hidden', 'true');
+  bar.innerHTML = '<span class="sq">' + COLS.slice(0, 4).map(function (c) { return '<span style="--c:' + c + '"></span>'; }).join('') +
+    '</span><b data-n>0 agents</b> · <span data-s>init</span> · <i>永遠</i>';
+  var skipBtn = document.createElement('button'); skipBtn.className = 'bld-skip'; skipBtn.type = 'button'; skipBtn.textContent = 'skip ›';
+  document.body.append(cv, bar, skipBtn);
+  var g = cv.getContext('2d'), W = 0, H = 0, dpr = Math.min(1.5, window.devicePixelRatio || 1);
+  function size() { W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); }
+  size(); addEventListener('resize', size);
+  var nEl = bar.querySelector('[data-n]'), sEl = bar.querySelector('[data-s]');
+  var agents = [], frames = [], done = false, t0 = performance.now(), heroFired = false;
+
+  // ---- text scramble on the real element's text nodes (keeps its HTML)
+  function scramble(el, dur) {
+    var nodes = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    while (w.nextNode()) if (w.currentNode.data.trim()) nodes.push({ n: w.currentNode, f: w.currentNode.data });
+    var s0 = performance.now();
+    (function step(now) {
+      var k = Math.min(1, (now - s0) / dur);
+      nodes.forEach(function (o) {
+        var f = o.f, keep = Math.floor(k * f.length), s = f.slice(0, keep);
+        for (var i = keep; i < f.length; i++) s += f[i] === ' ' ? ' ' : (Math.random() < 0.35 ? pick(JP) : pick(CODE));
+        o.n.data = s;
+      });
+      if (k < 1 && !done) requestAnimationFrame(step); else nodes.forEach(function (o) { o.n.data = o.f; });
+    })(s0);
+  }
+
+  // ---- agents: small arrow cursors with ghost trails + a kana/code tag
+  function spawnFlock(job, delay) {
+    var side = Math.random() * 4 | 0;
+    var sx = side === 0 ? -20 : side === 1 ? W + 20 : Math.random() * W, sy = side === 2 ? -20 : side === 3 ? H + 20 : Math.random() * H;
+    var col = pick(COLS), n = 2 + (Math.random() * 3 | 0);
+    for (var i = 0; i < n; i++) agents.push({ job: job, lead: i === 0, x: sx - i * 14, y: sy + i * 9, ox: i * 13, oy: i * 7, col: i ? pick(COLS) : col,
+      tag: pick(Math.random() < 0.5 ? JP : CODE) + pick(CODE), born: performance.now() + delay + i * 40, trail: [], gone: false, fade: 1 });
+  }
+  function arrow(x, y, c, a, s) {
+    g.globalAlpha = a; g.fillStyle = c;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + 8 * s, y + 3 * s); g.lineTo(x + 4.2 * s, y + 4.2 * s); g.lineTo(x + 3 * s, y + 8 * s); g.closePath(); g.fill();
+  }
+  function arrive(job) {
+    if (job.arrived) return; job.arrived = true;
+    frames.push({ r: job.el.getBoundingClientRect(), tag: job.tag, t: performance.now() });
+    sEl.textContent = 'building ' + job.tag.replace(/[<>]/g, '').trim();
+    if (job.kind === 'hero') {
+      if (!heroFired) { heroFired = true; window.__bootDone = true; dispatchEvent(new Event('boot:done')); }
+    } else {
+      job.el.classList.add('b-in');
+      if (job.kind === 'text') scramble(job.el, 420 + Math.random() * 260);
+    }
+  }
+  jobs.forEach(function (job, i) { spawnFlock(job, i * 130 + (job.kind === 'hero' ? 120 : 0)); });
+
+  function frame(now) {
+    if (done) return;
+    g.clearRect(0, 0, W, H);
+    var live = 0;
+    // wireframes: border draws on, corner handles, size label, guide lines; then fades
+    for (var f = frames.length - 1; f >= 0; f--) {
+      var fr = frames[f], age = now - fr.t, r = fr.r, p = Math.min(1, age / 240), a = age < 700 ? 1 : Math.max(0, 1 - (age - 700) / 380);
+      if (a <= 0) { frames.splice(f, 1); continue; }
+      g.globalAlpha = a * 0.25; g.strokeStyle = WIRE; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(0, r.top + .5); g.lineTo(W, r.top + .5); g.moveTo(r.left + .5, 0); g.lineTo(r.left + .5, H); g.stroke();
+      g.globalAlpha = a; g.lineWidth = 1.5;
+      var len = 2 * (r.width + r.height) * p, x = r.left, y = r.top;
+      g.beginPath(); g.moveTo(x, y);
+      var segs = [[r.width, 0], [0, r.height], [-r.width, 0], [0, -r.height]];
+      for (var s = 0; s < 4 && len > 0; s++) {
+        var L = Math.abs(segs[s][0] + segs[s][1]) || 1, u = Math.min(1, len / L);
+        x += segs[s][0] * u; y += segs[s][1] * u; g.lineTo(x, y); len -= L;
+      }
+      g.stroke();
+      if (p >= 1) {
+        g.fillStyle = '#0c0c0d'; g.strokeStyle = WIRE; g.lineWidth = 1.2;
+        [[r.left, r.top], [r.right, r.top], [r.left, r.bottom], [r.right, r.bottom]].forEach(function (c) { g.fillRect(c[0] - 3, c[1] - 3, 6, 6); g.strokeRect(c[0] - 3, c[1] - 3, 6, 6); });
+        var lab = fr.tag + '  ' + Math.round(r.width) + '×' + Math.round(r.height);
+        g.font = '500 10px "Geist Mono", ui-monospace, monospace';
+        var tw = g.measureText(lab).width + 10, ly = r.top > 18 ? r.top - 17 : r.bottom + 3;
+        g.fillStyle = WIRE; g.fillRect(r.left, ly, tw, 14);
+        g.fillStyle = '#ffffff'; g.fillText(lab, r.left + 5, ly + 10.5);
+      }
+    }
+    // agents
+    g.font = '500 9px "Geist Mono", ui-monospace, monospace';
+    for (var i = 0; i < agents.length; i++) {
+      var ag = agents[i];
+      if (now < ag.born || ag.fade <= 0) continue;
+      live++;
+      if (ag.tx === undefined) {
+        var rr = ag.job.el.getBoundingClientRect();
+        ag.tx = rr.left + ag.ox - 2; ag.ty = rr.top + ag.oy - 2; ag.ex = Math.random() < 0.5 ? -40 : W + 40; ag.ey = Math.random() * H;
+      }
+      var tx = ag.gone ? ag.ex : ag.tx, ty = ag.gone ? ag.ey : ag.ty;
+      ag.trail.push(ag.x, ag.y); if (ag.trail.length > 10) ag.trail.splice(0, 2);
+      var k2 = ag.gone ? 0.07 : 0.16;
+      ag.x += (tx - ag.x) * k2; ag.y += (ty - ag.y) * k2;
+      if (!ag.gone && Math.abs(tx - ag.x) < 4 && Math.abs(ty - ag.y) < 4) {
+        if (ag.lead) arrive(ag.job);
+        ag.hold = ag.hold || now;
+        if (now - ag.hold > 260) ag.gone = true;
+      }
+      if (ag.gone) ag.fade -= 0.035;
+      for (var t = 0; t < ag.trail.length; t += 2) arrow(ag.trail[t], ag.trail[t + 1], ag.col, (t / ag.trail.length) * 0.35 * ag.fade, 1);
+      arrow(ag.x, ag.y, ag.col, ag.fade, 1.25);
+      if (Math.random() < 0.15) ag.tag = pick(Math.random() < 0.5 ? JP : CODE) + pick(CODE);
+      g.globalAlpha = ag.fade * 0.9; g.fillStyle = ag.col; g.fillText(ag.tag, ag.x + 11, ag.y + 15);
+    }
+    g.globalAlpha = 1;
+    nEl.textContent = live + ' agents';
+    var allIn = jobs.every(function (j) { return j.arrived; });
+    if ((allIn && !frames.length && !live) || now - t0 > 6000) { finish(); return; }
+    requestAnimationFrame(frame);
+  }
+  function finish() {
+    if (done) return; done = true;
+    jobs.forEach(function (j) { j.el.classList.add('b-in'); });
+    if (!heroFired) { heroFired = true; window.__bootDone = true; dispatchEvent(new Event('boot:done')); }
+    try { sessionStorage.setItem('eien-boot', '1'); } catch (e) {}
+    sEl.textContent = 'build ok ✓'; bar.classList.add('is-out'); skipBtn.remove();
+    g.clearRect(0, 0, W, H);
+    setTimeout(function () { root.classList.remove('booting'); cv.remove(); bar.remove(); removeEventListener('resize', size); }, 450);
+  }
+  skipBtn.addEventListener('click', finish);
+  addEventListener('keydown', function (e) { if (e.key === 'Escape') finish(); });
+  requestAnimationFrame(frame);
+})();
+</script>
 
 <!-- ================= TICKER ================= -->
 <div class="ticker" aria-label="Most used languages on GitHub: C++ 75.11%, C# 8.84%, TypeScript 7.34%, C 3.21%, Python 2.5%, JavaScript 1.59%, Rust 0.94%, HLSL 0.47%" role="img" data-ticker>
@@ -2651,6 +2688,8 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   if (waitBoot) addEventListener('boot:done', () => intro.play(0), { once: true });
   intro
     .to(heroWords, { yPercent: 0, duration: 1.15, stagger: 0.09 }, 0.1)
+    ;
+  if (!waitBoot && !root.classList.contains('booting')) intro // the boot builder reveals these itself
     .from('[data-hero-meta] > div', { opacity: 0, y: 12, duration: 0.8, stagger: 0.06 }, 0.35)
     .from('[data-hero-lede]', { opacity: 0, y: 16, duration: 0.9 }, 0.5);
 
