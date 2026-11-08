@@ -533,7 +533,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .repo-dot:hover{background:color-mix(in srgb,var(--ember) 45%,var(--line-2))}
 .repo-dot[aria-selected="true"]{height:44px;background:color-mix(in srgb,var(--ember) 28%,var(--line-2))}
 .repo-dot i{position:absolute;inset:0;background:var(--ember);transform-origin:top;transform:scaleY(0)}
-.repo-dot[aria-selected="true"] i{animation:repo-tick var(--auto,7000ms) linear forwards}
+.repo-dot[aria-selected="true"] i{animation:repo-tick var(--auto,5000ms) linear forwards}
 .repo-shell.is-paused .repo-dot i{animation-play-state:paused}
 @keyframes repo-tick{to{transform:scaleY(1)}}
 .repo-dot:focus-visible{outline:2px solid var(--ember);outline-offset:4px}
