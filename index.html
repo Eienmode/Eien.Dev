@@ -59,6 +59,14 @@ html{-webkit-text-size-adjust:100%;color-scheme:dark}
   transition-property:color,background-color,border-color,fill,stroke,box-shadow,text-decoration-color,outline-color;
   transition-duration:1100ms;transition-timing-function:cubic-bezier(0.77,0,0.175,1);transition-delay:0s}
 html{scrollbar-gutter:stable} /* locking scroll (easter egg, menu) must not change the page width */
+/* Scrollbar blends into the page: thin, no visible track, thumb tinted with the live accent */
+html{background:var(--ink);scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--ember) 45%,#2a2a2e) transparent}
+@supports not (scrollbar-color:auto){
+  ::-webkit-scrollbar{width:8px;height:8px;background:transparent}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ember) 45%,#2a2a2e);border-radius:8px;border:2px solid var(--ink)}
+  ::-webkit-scrollbar-thumb:hover{background:var(--ember)}
+}
 html.lenis,html.lenis body{height:auto}
 .lenis.lenis-smooth{scroll-behavior:auto!important}
 .lenis.lenis-stopped{overflow:hidden}
