@@ -49,6 +49,7 @@ Project → Settings → Domains → add your domain and follow the DNS instruct
 | `index.html` | The site |
 | `404.html` | Shown by Vercel for unknown URLs |
 | `vercel.json` | Clean URLs, security headers, asset caching |
+| `api/contributions.js` | Vercel function: serves the GitHub contribution calendar (cached 15 min) |
 | `favicon.svg`, `site.webmanifest` | Browser tab icon / install metadata |
 | `robots.txt`, `sitemap.xml` | Search engine indexing |
 | `assets/portrait.jpg` | Portrait (also used as the link-preview image) |

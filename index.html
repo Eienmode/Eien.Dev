@@ -1179,8 +1179,11 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     const fail = () => { box.classList.add('is-failed'); total.textContent = 'View activity on GitHub'; };
     const dateFmt = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
-    fetch('https://github-contributions-api.jogruber.de/v4/Eienmode?y=last')
-      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+    // Own Vercel function first (reads GitHub directly); third-party API as a backup.
+    const getJSON = (u) => fetch(u).then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(d => (d && d.contributions && d.contributions.length ? d : Promise.reject('empty')));
+    getJSON('/api/contributions')
+      .catch(() => getJSON('https://github-contributions-api.jogruber.de/v4/Eienmode?y=last'))
       .then(data => {
         const days = (data && data.contributions) || [];
         if (!days.length) return fail();
