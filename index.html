@@ -188,13 +188,8 @@ button{font:inherit;color:inherit}
 .hero-name .line:last-child{padding-left:.06em}
 .hero-name .ember{color:var(--ember)}
 .hero-bottom{position:relative;display:grid;grid-template-columns:1.1fr 1fr auto;gap:2rem;align-items:end;padding:2.25rem 0 2rem;margin-top:2rem}
-/* divider under the name: a thick see-through frosted-glass band instead of a hairline */
-.hero-bottom::before{content:"";position:absolute;left:0;right:0;top:-8px;height:16px;border-radius:999px;pointer-events:none;
-  background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.03));
-  -webkit-backdrop-filter:blur(10px) saturate(160%);backdrop-filter:blur(10px) saturate(160%);
-  border:1px solid rgba(236,233,226,.16);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 26px color-mix(in srgb,var(--ember) 22%,transparent)}
-@media (prefers-reduced-transparency:reduce){.hero-bottom::before{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--ink-3)}}
+/* divider under the name: a thick plain black band */
+.hero-bottom::before{content:"";position:absolute;left:0;right:0;top:-8px;height:16px;border-radius:999px;background:#000;pointer-events:none}
 .hero-lede{max-width:34ch;font-size:clamp(1.05rem,1.4vw,1.3rem);line-height:1.45;letter-spacing:-.01em;margin:0}
 .hero-lede em{font-style:normal;color:var(--ember)}
 .cta-row{display:flex;flex-wrap:wrap;gap:.75rem}
@@ -1662,7 +1657,13 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     };
     // scene glyphs are queued and painted into the cache a few ms per frame (no long main-thread block)
     let ops = [], opI = 0, built = false, job = null;
-    const stamp = (g, ch, color, size, x, y, a, weight, font) => { ops.push(ch, color, size, x, y, a, weight, font); };
+    // assembly: the finished scene is revealed tile by tile (ground up), each tile flashing as a code block
+    const CS = 36; let occ = new Map(), cells = [], ready = false, asmT = 0, asmDone = false;
+    const stamp = (g, ch, color, size, x, y, a, weight, font) => {
+      ops.push(ch, color, size, x, y, a, weight, font);
+      const cx = Math.floor(x / CS), cy = Math.floor(y / CS), k = cx * 4096 + cy;
+      if (!occ.has(k)) occ.set(k, { x: cx * CS, y: cy * CS, o: 0 });
+    };
     // The whole build (geometry, overlap filter, painting) is a generator run in small slices during
     // browser idle time, so it never competes with scrolling for a frame.
     function runJob(gen) {
@@ -1686,7 +1687,12 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         if ((opI & 255) === 0) { if (still && !raf) draw(performance.now()); yield; }
       }
       bctx.globalAlpha = 1; fadeCopy(); ops = [];
+      cells = [...occ.values()];
+      cells.forEach(c => { c.o = (H - c.y) / H + Math.random() * 0.22; }); // grow from the ground up, a little ragged
+      cells.sort((a, b) => a.o - b.o);
+      ready = true; asmT = 0; asmDone = still;
       if (!raf) draw(performance.now());
+      kick();
     }
 
     /* ---- tree geometry (original design: bark trunk, fanning limbs, dense pink dome crown) ---- */
@@ -1887,6 +1893,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       const wide = W >= 900 && kr && cr, gapL = wide && cr.right - r.left, gapR = wide && kr.left - r.left;
       if (job) job.alive = false;
       ops = []; opI = 0; barkGlyphs = []; blooms = []; grid = new Map(); hgrid = new Map(); lit = new Map();
+      occ = new Map(); cells = []; ready = false; asmT = 0; asmDone = false;
       built = true;
       makePetalSprites();
       petals = []; glitches = [];
@@ -1977,6 +1984,25 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 1;
       ctx.clearRect(0, 0, cv.width, cv.height);
+      if (!ready) return;                                   // still building out of sight: show nothing yet
+      if (!asmDone) {
+        if (!asmT) asmT = now;
+        const DUR = 1900, k = Math.min(1, (now - asmT) / DUR), ease = (v) => 1 - Math.pow(1 - v, 2.2);
+        const n = Math.floor(ease(k) * cells.length), n0 = Math.floor(ease(Math.max(0, k - 240 / DUR)) * cells.length), d = CS * dpr;
+        for (let i = 0; i < n; i++) { const c = cells[i]; ctx.drawImage(base, c.x * dpr, c.y * dpr, d, d, c.x * dpr, c.y * dpr, d, d); }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // the newest tiles flash as code blocks: outline + a glyph, fading as they settle
+        const col = acc(t / 6); ctx.font = '500 10px "Geist Mono", ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        for (let i = n0; i < n; i++) {
+          const c = cells[i], f = (i - n0 + 1) / Math.max(1, n - n0);
+          ctx.globalAlpha = 0.18 * f; ctx.fillStyle = col; ctx.fillRect(c.x, c.y, CS, CS);
+          ctx.globalAlpha = 0.7 * f; ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(c.x + .5, c.y + .5, CS - 1, CS - 1);
+          ctx.globalAlpha = f; ctx.fillStyle = '#fff4f8'; ctx.fillText(pickR(CODE), c.x + CS / 2, c.y + CS / 2);
+        }
+        ctx.globalAlpha = 1;
+        if (k >= 1) asmDone = true;
+        return;
+      }
       ctx.drawImage(base, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       // glitching blossoms: flicker to a scrambled glyph with a faint chromatic split
