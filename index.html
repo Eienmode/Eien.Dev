@@ -525,6 +525,11 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .repo-shell.is-live .repo-page.is-on .repo{animation:repo-in 700ms var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 70ms + 60ms)}
 @keyframes repo-in{from{opacity:0;transform:translateY(calc(var(--dir,1) * 26px))}to{opacity:1;transform:none}}
 .repo--private{cursor:default}
+/* live code strip: bottom-right corner, same row as the meta line (always empty space) */
+.repo-code{position:absolute;right:1.4rem;bottom:1.3rem;font-size:.68rem;letter-spacing:.06em;text-transform:none;white-space:pre;
+  color:var(--mute);opacity:.38;pointer-events:none;transition:color 300ms ease,opacity 300ms ease;font-variant-numeric:tabular-nums}
+.repo:hover .repo-code{color:var(--ember);opacity:.85}
+@media (max-width:480px){.repo-code{display:none}}
 .repo-dots{display:none;flex-direction:column;align-items:center;gap:.55rem;padding:.6rem .25rem}
 .repo-shell.is-live .repo-dots{display:flex}
 .repo-dot{position:relative;width:8px;height:8px;padding:0;border:0;border-radius:8px;background:var(--line-2);cursor:pointer;overflow:hidden;
@@ -2256,6 +2261,34 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     }
     shell.classList.add('is-live');
     go(0, 1);
+
+    // live code strip on each card: a few characters re-roll constantly, more while hovered
+    const HEX = '0123456789abcdef', SYM = '{}[]<>/=;:#*+&|';
+    const rollHex = () => HEX[(Math.random() * 16) | 0];
+    const codes = [...shell.querySelectorAll('.repo')].map(card => {
+      const el = document.createElement('span');
+      el.className = 'repo-code mono'; el.setAttribute('aria-hidden', 'true');
+      const ch = ('0x' + Array.from({ length: 4 }, rollHex).join('') + ' ' + Array.from({ length: 4 }, rollHex).join('') + ' ' + SYM[(Math.random() * SYM.length) | 0] + SYM[(Math.random() * SYM.length) | 0]).split('');
+      el.textContent = ch.join(''); card.appendChild(el);
+      const c = { el, ch, card, hot: false };
+      card.addEventListener('pointerenter', () => { c.hot = true; });
+      card.addEventListener('pointerleave', () => { c.hot = false; });
+      return c;
+    });
+    const still = document.documentElement.classList.contains('rm') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!still) setInterval(() => {
+      if (!seen || document.hidden) return;
+      for (const c of codes) {
+        if (!c.card.closest('.is-on')) continue;           // only the set on screen
+        const n = c.hot ? 4 : (Math.random() < 0.55 ? 1 : 0);
+        for (let k = 0; k < n; k++) {
+          const i = (Math.random() * c.ch.length) | 0, cur = c.ch[i];
+          if (i < 2 || cur === ' ') continue; // keep the "0x" prefix and spacing
+          c.ch[i] = SYM.includes(cur) ? SYM[(Math.random() * SYM.length) | 0] : rollHex();
+        }
+        if (n) c.el.textContent = c.ch.join('');
+      }
+    }, 90);
 
     shell.addEventListener('pointerenter', () => { hover = true; sync(); });
     shell.addEventListener('pointerleave', () => { hover = false; sync(); });
