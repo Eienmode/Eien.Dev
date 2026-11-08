@@ -1372,93 +1372,72 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       if (still && !raf) draw(performance.now());
     }
 
-    /* ---- tree geometry: a gnarled trunk, limbs curving out to rounded blossom lobes ---- */
-    function curve(x1, y1, x2, y2, bend, w1, w2, out, tag) {
-      // quadratic curve split into short segments, width tapering w1 -> w2
-      const mx = (x1 + x2) / 2 + (y2 - y1) * bend, my = (y1 + y2) / 2 - (x2 - x1) * bend;
-      const n = 5;
-      let px = x1, py = y1;
-      for (let i = 1; i <= n; i++) {
-        const t = i / n, u = 1 - t;
-        const x = u * u * x1 + 2 * u * t * mx + t * t * x2, y = u * u * y1 + 2 * u * t * my + t * t * y2;
-        out.push({ x1: px, y1: py, x2: x, y2: y, w: w1 + (w2 - w1) * t, part: i, tag });
-        px = x; py = y;
+    /* ---- tree geometry (original design: bark trunk, fanning limbs, dense pink dome crown) ---- */
+    const PINKS = ['#ffe8f1', '#ffd6e7', '#ffc1da', '#fda9cb', '#f98fba', '#f472b6', '#ec5a9a', '#db3f7f']; // light (top) -> deep (under)
+    function branch(x, y, ang, len, w, depth, segs, tips) {
+      const bend = (rnd() - 0.5) * 0.35;
+      const mxp = x + Math.cos(ang + bend) * len * 0.5, myp = y + Math.sin(ang + bend) * len * 0.5;
+      const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
+      segs.push({ x1: x, y1: y, x2: mxp, y2: myp, w }, { x1: mxp, y1: myp, x2, y2, w: w * 0.85 });
+      if (depth === 0) { tips.push({ x: x2, y: y2 }); return; }
+      const n = depth >= 3 ? 2 + (rnd() < 0.5 ? 1 : 0) : 2;
+      const droop = depth <= 1 ? (Math.cos(ang) > 0 ? 0.35 : -0.35) : 0; // outer twigs bend down
+      for (let k = 0; k < n; k++) {
+        const a = ang + (k - (n - 1) / 2) * (0.5 + rnd() * 0.35) + droop + (rnd() - 0.5) * 0.25;
+        branch(x2, y2, a, len * (0.68 + rnd() * 0.12), w * 0.6, depth - 1, segs, tips);
       }
     }
 
-    function buildTree(rx, gy, cw, height, kind, fs, out) {
-      const weeping = kind === 'weeping';
-      const bw = Math.max(16, Math.min(70, cw * 0.075));
-      const ch = height * (weeping ? 0.5 : 0.56);           // crown height
-      const top = gy - height, ccy = top + ch * 0.55;         // crown centre y
-      const forkY = top + ch * (weeping ? 0.85 : 0.9);
-      const segs = [], lobes = [];
-      // trunk: slightly leaning, flared at the root
-      const lean = (rnd() - 0.5) * cw * 0.05;
-      curve(rx, gy, rx + lean, forkY, (rnd() - 0.5) * 0.15, bw * 1.35, bw * 0.9, segs, 'trunk');
-      const fx = rx + lean, fy = forkY;
-      // crown lobes along an upper dome, plus a few inner ones
-      const N = weeping ? 11 : 10;
-      for (let i = 0; i < N; i++) {
-        const f = i / (N - 1), th = Math.PI * (0.06 + f * 0.88);
-        const rr = 0.72 + rnd() * 0.25;
-        lobes.push({ x: rx + Math.cos(th) * cw * 0.42 * rr, y: ccy - Math.sin(th) * ch * 0.42 * rr + (rnd() - 0.5) * ch * 0.08,
-          r: cw * (0.1 + rnd() * 0.06), sy: 0.85 });
+    function buildTree(rx, gy, tw, th, out) {
+      const segs = [], tips = [];
+      const trunkW = Math.max(16, tw * 0.07), trunkH = th * 0.3;
+      const lean = (rnd() - 0.5) * 0.15;
+      const tx = rx + Math.cos(-Math.PI / 2 + lean) * trunkH, ty = gy + Math.sin(-Math.PI / 2 + lean) * trunkH;
+      segs.push({ x1: rx, y1: gy, x2: (rx + tx) / 2 + (rnd() - 0.5) * trunkW, y2: (gy + ty) / 2, w: trunkW * 1.25 });
+      segs.push({ x1: (rx + tx) / 2, y1: (gy + ty) / 2, x2: tx, y2: ty, w: trunkW });
+      const limbs = 3 + (rnd() < 0.5 ? 1 : 0);
+      for (let k = 0; k < limbs; k++) {
+        const f = limbs === 1 ? 0.5 : k / (limbs - 1);
+        const a = -Math.PI + 0.35 + f * (Math.PI - 0.7) + (rnd() - 0.5) * 0.2;
+        branch(tx, ty, a, th * 0.2 * (0.85 + rnd() * 0.3), trunkW * 0.62, 4, segs, tips);
       }
-      for (let i = 0; i < 4; i++) lobes.push({ x: rx + (rnd() - 0.5) * cw * 0.45, y: ccy + (rnd() - 0.3) * ch * 0.25, r: cw * (0.1 + rnd() * 0.05), sy: 0.8 });
-      // weeping: cascades of smaller, taller lobes hanging from both sides
-      if (weeping) [-1, 1].forEach(side => {
-        for (let c = 0; c < 3; c++) {
-          let x = rx + side * cw * (0.22 + c * 0.12), y = ccy + ch * 0.05, r = cw * 0.1;
-          for (let k = 0; k < 7; k++) {
-            x += side * r * (0.15 + rnd() * 0.2); y += r * 1.05; r *= 0.86;
-            if (y > gy - r) break;
-            lobes.push({ x, y, r, sy: 1.7, droop: true });
-          }
+      let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+      tips.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+      const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, rxE = (maxX - minX) / 2 + 30, ryE = (maxY - minY) / 2 + 26;
+      const fs = Math.max(10, Math.min(16, tw / 40));
+      const shade = (y) => { const t = Math.min(1, Math.max(0, (y - (cy - ryE)) / (2 * ryE))); return Math.min(PINKS.length - 1, Math.max(0, Math.round(t * (PINKS.length - 1) + (rnd() - 0.5) * 2.2))); };
+      const tree = { segs, blooms: [] };
+      tips.forEach(p => {
+        const c = 14 + ((rnd() * 10) | 0), r = fs * 2.6;
+        for (let i = 0; i < c; i++) {
+          const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r;
+          const x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.8;
+          tree.blooms.push({ x, y, s: fs * (0.7 + rnd() * 0.55), ch: pick(BLOOM), c: shade(y) });
         }
       });
-      // limbs from the fork to each main lobe (inner part shows through the blossoms)
-      lobes.forEach((L, i) => {
-        if (L.droop) return;
-        const w1 = bw * (0.55 + rnd() * 0.2);
-        curve(fx, fy, L.x, L.y + L.r * 0.2, (rnd() - 0.5) * 0.35, w1, Math.max(3, bw * 0.12), segs, 'limb');
-        // two twigs out of each lobe
-        for (let k = 0; k < 2; k++) {
-          const a = -Math.PI / 2 + (rnd() - 0.5) * 2.2;
-          curve(L.x, L.y, L.x + Math.cos(a) * L.r * 0.9, L.y + Math.sin(a) * L.r * 0.9, (rnd() - 0.5) * 0.3, Math.max(3, bw * 0.1), 2, segs, 'twig');
-        }
-      });
-      if (weeping) lobes.filter(L => L.droop).forEach(L => // thin hanging limbs through the cascades
-        curve(L.x - L.r * 0.1, L.y - L.r * 1.6, L.x, L.y + L.r * 1.2, 0.05, Math.max(3, bw * 0.12), 2, segs, 'twig'));
-      out.push({ kind, segs, lobes, fs, rx, gy, cw, top, ch });
+      const fill = Math.min(3200, Math.round((rxE * ryE) / (fs * fs) * 2.6));
+      for (let i = 0; i < fill; i++) {
+        const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd());
+        const x = cx + Math.cos(a) * d * rxE, y = cy + Math.sin(a) * d * ryE * 0.9;
+        if (y > cy + ryE * 0.35 && rnd() < 0.6) continue; // thinner underside so branches show
+        tree.blooms.push({ x, y, s: fs * (0.65 + rnd() * 0.6), ch: pick(BLOOM), c: shade(y) });
+      }
+      out.push(tree);
     }
 
-    /* ---- render the whole scene once ---- */
-    function barkSeg(s, alpha, small) {
-      const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1), ang = Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
-      const gs = small ? 8 : Math.max(7, Math.min(14, s.w * 0.5));
-      const n = Math.max(1, Math.round(len / (gs * 0.7))), cols = Math.max(1, Math.round(s.w / (gs * 0.75)));
+    /* ---- render the whole scene once (queued, painted in slices) ---- */
+    function barkSeg(sg) {
+      const len = Math.hypot(sg.x2 - sg.x1, sg.y2 - sg.y1), ang = Math.atan2(sg.y2 - sg.y1, sg.x2 - sg.x1);
+      const gs = Math.max(7, Math.min(15, sg.w * 0.55));
+      const steps = Math.max(1, Math.round(len / (gs * 0.7)));
+      const cols = Math.max(1, Math.round(sg.w / (gs * 0.75)));
       const nx = -Math.sin(ang), ny = Math.cos(ang);
-      for (let i = 0; i <= n; i++) {
-        const px = s.x1 + (s.x2 - s.x1) * i / n, py = s.y1 + (s.y2 - s.y1) * i / n;
+      for (let i = 0; i <= steps; i++) {
+        const px = sg.x1 + (sg.x2 - sg.x1) * i / steps, py = sg.y1 + (sg.y2 - sg.y1) * i / steps;
         for (let c = 0; c < cols; c++) {
           const o = (c - (cols - 1) / 2) * gs * 0.75;
-          const edge = cols > 2 && (c === 0 || c === cols - 1);
-          stamp(bctx, pick(BARK_CH), edge ? BARK[0] : pick(BARK), gs, px + nx * o, py + ny * o, (edge ? 0.65 : 0.92) * alpha, 600);
+          stamp(bctx, pick(BARK_CH), pick(BARK), gs, px + nx * o, py + ny * o, 0.75 + rnd() * 0.25, 600);
         }
-      }
-    }
-
-    function lobeBlooms(L, tr, list) {
-      const fs = tr.fs, n = Math.round(Math.PI * L.r * L.r * L.sy / (fs * fs) * 0.62);
-      for (let i = 0; i < n; i++) {
-        const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * L.r;
-        const x = L.x + Math.cos(a) * d * (L.droop ? 0.7 : 1.1), y = L.y + Math.sin(a) * d * L.sy;
-        // light from above: local lobe shading + overall crown shading + noise
-        const local = (y - (L.y - L.r * L.sy)) / (2 * L.r * L.sy), global = (y - tr.top) / (tr.ch * 1.3);
-        let shade = local * 0.5 + global * 0.4 + 0.1 + (rnd() - 0.5) * 0.35;
-        shade = Math.max(0, Math.min(0.999, shade));
-        list.push({ x, y, s: fs * (0.75 + rnd() * 0.5), ch: pick(BLOOM), col: BLOSSOM[(shade * BLOSSOM.length) | 0] });
       }
     }
 
@@ -1466,20 +1445,16 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       base.width = cv.width; base.height = cv.height;
       bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       blooms = []; grid = new Map();
-      // ground petal carpet across the whole width
-      for (let i = 0; i < W / 2.4; i++) {
+      // fallen petal carpet across the whole width (pink + white)
+      for (let i = 0; i < W / 2.2; i++) {
         const x = rnd() * W, y = H - 4 - Math.pow(rnd(), 2) * 20;
-        stamp(bctx, pick(['・', 'ひ', 'ら', '花', '・']), rnd() < 0.55 ? '#ffffff' : pick(BLOSSOM.slice(2)), 7 + rnd() * 5, x, y, 0.3 + rnd() * 0.5, 600);
+        stamp(bctx, pick(['・', 'ひ', 'ら', 'り', '花', '桜']), rnd() < 0.4 ? '#ffffff' : PINKS[2 + ((rnd() * 5) | 0)], 7 + rnd() * 5, x, y, 0.35 + rnd() * 0.5, 600);
       }
       trees.forEach(tr => {
-        tr.segs.forEach(s => barkSeg(s, 1, s.tag === 'twig'));
-        const list = [];
-        tr.lobes.forEach(L => lobeBlooms(L, tr, list));
-        list.sort((a, b) => BLOSSOM.indexOf(b.col) - BLOSSOM.indexOf(a.col)); // deep shades first, light on top
-        list.forEach(b => stamp(bctx, b.ch, b.col, b.s, b.x, b.y, 0.88, 700));
-        // the middle of each limb shows through the blossoms (dark branches, like the photos)
-        tr.segs.forEach(s => { if (s.tag === 'limb' && s.part >= 2 && s.part <= 4) barkSeg(s, 0.55, true); });
-        list.forEach(b => {
+        tr.segs.forEach(barkSeg);
+        tr.blooms.sort((a, b) => b.c - a.c); // deep shades first, light on top
+        tr.blooms.forEach(b => { b.col = PINKS[b.c]; stamp(bctx, b.ch, b.col, b.s, b.x, b.y, 0.92, 700); });
+        tr.blooms.forEach(b => {
           blooms.push(b);
           const k = key(Math.floor(b.x / CELL), Math.floor(b.y / CELL));
           (grid.get(k) || grid.set(k, []).get(k)).push(b);
@@ -1537,12 +1512,12 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       seed = 3;
       if (W >= 900 && kr && cr) {
         const gapL = cr.right - r.left, gapR = kr.left - r.left;
-        buildTree(W * 0.02, gy, W * 0.36, H * 0.92, 'spread', 12, trees);   // left, partly off screen
-        buildTree(W * 0.985, gy, W * 0.36, H * 0.94, 'spread', 12, trees);  // right, partly off screen
-        buildTree(Math.max(gapL + 60, (gapL + gapR) / 2), gy, Math.min(900, W * 0.42), H * 0.97, 'weeping', 13, trees); // big weeping centre
+        buildTree(W * 0.03, gy, W * 0.42, H * 0.92, trees);    // left, partly off screen
+        buildTree(W * 0.975, gy, W * 0.42, H * 0.94, trees);   // right, partly off screen
+        buildTree(Math.max(gapL + 40, (gapL + gapR) / 2), gy, Math.min(860, Math.max(500, (gapR - gapL) * 2.8)), H * 0.97, trees); // centre
       } else {
-        buildTree(W * 0.15, gy, W * 0.7, H * 0.5, 'spread', 10, trees);
-        buildTree(W * 0.75, gy, W * 0.85, H * 0.6, 'weeping', 11, trees);
+        buildTree(W * 0.15, gy, W * 0.75, H * 0.5, trees);
+        buildTree(W * 0.78, gy, W * 0.95, H * 0.6, trees);
       }
       ops = []; opI = 0; if (building) cancelAnimationFrame(building);
       renderScene(trees);
