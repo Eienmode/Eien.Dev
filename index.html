@@ -1165,7 +1165,8 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       .then(data => {
         const days = data.contributions;
         const lead = new Date(days[0].date + 'T00:00:00').getDay(); // rows run Sun..Sat
-        cells = days.map((d, k) => { const i = k + lead; return { x: (i / 7) | 0, y: i % 7, l: +d.level || 0, c: +d.count || 0, date: d.date }; });
+        cells = days.map((d, k) => { const i = k + lead; return { x: (i / 7) | 0, y: i % 7, l: +d.level || 0, c: +d.count || 0, date: d.date,
+          ph: Math.random() * Math.PI * 2, sp: 1.6 + Math.random() * 2.2 }; }); // random pulse phase + speed per day
         cols = cells[cells.length - 1].x + 1;
         const n = data.total && data.total.lastYear != null ? data.total.lastYear : days.reduce((s, d) => s + d.count, 0);
         total.innerHTML = '<b>' + n.toLocaleString() + '</b> contribution' + (n === 1 ? '' : 's') + ' in the last year';
@@ -1231,7 +1232,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       for (const i of lit) {
         const c = cells[i], h = heat[i];
         const col = pal(t / 6 + c.x * 0.018 + c.y * 0.027);
-        const pulse = c.l > 0 && !still ? 0.5 + 0.5 * Math.sin(t * 2.6 - c.x * 0.35) : 0;
+        const pulse = c.l > 0 && !still ? 0.5 + 0.5 * Math.sin(t * c.sp + c.ph) : 0;
         const a = ALPHA[c.l];
         const lift = Math.min(1, pulse * 0.3 + h * 0.45); // brighten toward white
         let r = BG[0] + (col[0] - BG[0]) * a, g = BG[1] + (col[1] - BG[1]) * a, b = BG[2] + (col[2] - BG[2]) * a;
