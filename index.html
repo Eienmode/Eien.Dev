@@ -73,7 +73,7 @@ html{-webkit-text-size-adjust:100%;color-scheme:dark}
    A slim floating thumb (.sbar) is drawn over the page instead. */
 html{background:var(--ink);scrollbar-width:none}
 /* ---------- Boot intro: the page is "built" live by cursor agents ---------- */
-html.booting :is(.nav .brand,.nav-links li,.nav-meta,[data-hero-meta]>div,.hero-lede,.cta-row .btn,.scroll-cue,.hero-visual){opacity:0}
+html.booting :is(.nav .brand,.nav-links li,.nav-meta,[data-hero-meta]>div,.hero-rule,.hero-lede,.cta-row .btn,.scroll-cue,.hero-visual){opacity:0}
 html.booting .b-in{opacity:1!important;transition:opacity 260ms ease}
 html.booting .hero-visual.b-in{transition:opacity 900ms ease}
 .bld{position:fixed;inset:0;width:100%;height:100%;z-index:150;pointer-events:none}
@@ -118,12 +118,13 @@ button{font:inherit;color:inherit}
 .nav{
   position:fixed;inset:0 0 auto 0;z-index:50;
   transition:transform 400ms var(--ease-drawer);
+  will-change:transform; /* own layer: show/hide never repaints the page */
 }
 .nav.is-hidden{transform:translateY(-100%)}
 .nav::before{ /* frosted glass bar: see-through, blurred, no strip hanging below it */
   content:"";position:absolute;inset:0;pointer-events:none;
   background:rgba(12,12,13,.38);
-  -webkit-backdrop-filter:blur(14px) saturate(150%);backdrop-filter:blur(14px) saturate(150%);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px); /* cheaper per scroll frame, same look */
   border-bottom:1px solid rgba(236,233,226,.08);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
   transition:background-color 300ms ease,border-color 300ms ease;
@@ -188,8 +189,12 @@ button{font:inherit;color:inherit}
 .hero-name .line:last-child{padding-left:.06em}
 .hero-name .ember{color:var(--ember)}
 .hero-bottom{position:relative;display:grid;grid-template-columns:1.1fr 1fr auto;gap:2rem;align-items:end;padding:2.25rem 0 2rem;margin-top:2rem}
-/* divider under the name: a thick plain black band */
-.hero-bottom::before{content:"";position:absolute;left:0;right:0;top:-8px;height:16px;border-radius:999px;background:#000;pointer-events:none}
+/* divider under the name: a slim frosted-glass band (built by the intro like everything else) */
+.hero-rule{position:absolute;left:0;top:-5px;width:min(72%,52rem);height:10px;border-radius:999px;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.03));
+  -webkit-backdrop-filter:blur(8px) saturate(150%);backdrop-filter:blur(8px) saturate(150%);
+  border:1px solid rgba(236,233,226,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.16)}
+@media (prefers-reduced-transparency:reduce){.hero-rule{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--ink-3)}}
 .hero-lede{max-width:34ch;font-size:clamp(1.05rem,1.4vw,1.3rem);line-height:1.45;letter-spacing:-.01em;margin:0}
 .hero-lede em{font-style:normal;color:var(--ember)}
 .cta-row{display:flex;flex-wrap:wrap;gap:.75rem}
@@ -831,6 +836,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     </h1>
 
     <div class="hero-bottom">
+      <span class="hero-rule" aria-hidden="true"></span>
       <p class="hero-lede" data-hero-lede>I build games in Unity, take software apart to learn how it really works, and write C++ <em>close to the metal</em>. I also run UNIA! LLC.</p>
       <div class="cta-row">
         <a class="btn" href="#work" data-magnetic>See the work <span class="arr" aria-hidden="true">→</span></a>
@@ -856,7 +862,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   var PLAN = [
     ['.nav .brand', '<a> 永', 'text'], ['.nav-links li', '<li>', 'text'], ['.nav-meta', '<div> 時', 'text'],
     ['.hero-visual', '<canvas> 光', 'fade'], ['[data-hero-meta]>div', '<dl>', 'text'],
-    ['.hero-name', '<h1> 名', 'hero'], ['.hero-lede', '<p> 文', 'text'], ['.cta-row .btn', '<a> →', 'text'], ['.scroll-cue', '<i> ↓', 'fade']
+    ['.hero-name', '<h1> 名', 'hero'], ['.hero-rule', '<hr> 線', 'fade'], ['.hero-lede', '<p> 文', 'text'], ['.cta-row .btn', '<a> →', 'text'], ['.scroll-cue', '<i> ↓', 'fade']
   ];
   var jobs = [];
   PLAN.forEach(function (p) { document.querySelectorAll(p[0]).forEach(function (el) { jobs.push({ el: el, tag: p[1], kind: p[2] }); }); });
@@ -1916,14 +1922,14 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     function spawnPetal(x, y, vx, vy) {
       if (petals.length > 110 || !petalSprites.length) return;
       petals.push({ x, y, vx, vy, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.08, sw: Math.random() * 6.28,
-        life: 1, sp: pickR(petalSprites), sc: 0.7 + Math.random() * 0.6 });
+        life: 1, a0: 0, sp: pickR(petalSprites), sc: 0.7 + Math.random() * 0.6 });
     }
 
     function mutateBark() {
       // rewrite a few trunk characters directly in the cached image: the code is always changing
-      if (!barkGlyphs.length || opI < ops.length) return;
+      if (!barkGlyphs.length || opI < ops.length || amb < 0.05) return;
       bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      for (let i = 0; i < 26; i++) {
+      for (let i = 0, n = Math.round(26 * amb); i < n; i++) {
         const g = barkGlyphs[(Math.random() * barkGlyphs.length) | 0];
         const h = g.s * 0.5;
         bctx.clearRect(g.x - h, g.y - h * 1.1, g.s, g.s * 1.1);
@@ -1937,14 +1943,16 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }
     }
 
+    let amb = 0; // 0..1 ambient life (petal fall, glitches, trunk code); eases in once the trees have assembled
     function update(now) {
+      amb = still ? 1 : (!ready || !asmT) ? 0 : Math.min(1, Math.max(0, (now - asmT - 900) / 2600)) ** 1.6;
       mutateBark();
       // ambient: occasional glitch bursts in the blossoms, steady petal fall
-      if (blooms.length && Math.random() < 0.06 && glitches.length < 20) {
+      if (blooms.length && Math.random() < 0.06 * amb && glitches.length < 20) {
         const b = pickR(blooms), cell = grid.get(key(Math.floor(b.x / CELL), Math.floor(b.y / CELL))) || [b];
         for (let i = 0; i < Math.min(4, cell.length); i++) glitches.push({ b: pickR(cell), f: 3 + ((Math.random() * 8) | 0) });
       }
-      if (blooms.length && Math.random() < 0.35) { const b = pickR(blooms); spawnPetal(b.x, b.y, (Math.random() - 0.3) * 0.6, 0.3 + Math.random() * 0.5); }
+      if (blooms.length && Math.random() < 0.35 * amb) { const b = pickR(blooms); spawnPetal(b.x, b.y, (Math.random() - 0.3) * 0.6, 0.3 + Math.random() * 0.5); }
 
       // hover = a soft breeze: nearby blossoms ripple and brighten, petals float off with the cursor's drift
       const R = 170, seen = new Set();
@@ -1970,7 +1978,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         const p = petals[i];
         if (hovering) { const dx = p.x - mx, dy = p.y - my, d2 = dx * dx + dy * dy;
           if (d2 < 22000) { const f = (1 - d2 / 22000) * 0.02; p.vx += wvx * f; p.vy += Math.abs(wvy) * f * 0.3; } } // carried gently, never blasted
-        p.sw += 0.03; p.vx *= 0.985; p.vy = Math.min(1.6, p.vy * 0.99 + 0.012);
+        p.a0 = Math.min(1, p.a0 + 0.035); p.sw += 0.03; p.vx *= 0.985; p.vy = Math.min(1.6, p.vy * 0.99 + 0.012);
         p.x += p.vx + Math.sin(p.sw) * 0.5; p.y += p.vy; p.rot += p.vr;
         if (p.y > H - 6) { p.y = H - 6; p.vy = 0; p.vx *= 0.8; p.life -= 0.025; } else p.life -= 0.0018;
         if (p.life <= 0 || p.x < -40 || p.x > W + 40) petals.splice(i, 1);
@@ -2030,7 +2038,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       // petals
       for (const p of petals) {
         const c = Math.cos(p.rot) * p.sc, s = Math.sin(p.rot) * p.sc;
-        ctx.globalAlpha = Math.max(0, Math.min(1, p.life)) * 0.92;
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.life)) * 0.92 * p.a0;
         ctx.setTransform(c * dpr, s * dpr, -s * dpr, c * dpr, p.x * dpr, p.y * dpr);
         ctx.drawImage(p.sp.c, -p.sp.d / 2, -p.sp.d / 2, p.sp.d, p.sp.d);
       }
