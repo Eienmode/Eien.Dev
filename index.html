@@ -97,7 +97,7 @@ html.lenis,html.lenis body{height:auto}
 .lenis.lenis-smooth{scroll-behavior:auto!important}
 .lenis.lenis-stopped{overflow:hidden}
 body{
-  margin:0;background:var(--ink);color:var(--bone);
+  margin:0;background:transparent;color:var(--bone); /* the page colour lives on <html> so the section-background canvas can show */
   font:400 1.0625rem/1.6 var(--display);font-feature-settings:"ss01","cv11";
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
 }
@@ -175,6 +175,7 @@ button{font:inherit;color:inherit}
 }
 .hero-visual canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:0;transition:opacity 1.2s ease}
 .hero-visual canvas.is-live{opacity:1}
+.bgfx{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
 .hero-eye{position:absolute;left:0;top:0;z-index:-1;pointer-events:none} /* code eye + rain in the empty top-left triangle */
 .hero-visual::after{ /* keeps the name legible over the field */
   content:"";position:absolute;inset:0;
@@ -904,7 +905,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       ew *= 0.96;
     }
     var cell = Math.max(6, Math.round(ew / 80)), ncol = Math.round(ew / cell), nrow = Math.round(eh / cell);
-    eye = { x: cx - ncol * cell / 2, y: cy - nrow * cell / 2, cell: cell, cols: ncol, rows: nrow, chars: [], o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0 };
+    eye = { x: cx - ncol * cell / 2, y: cy - nrow * cell / 2, cell: cell, cols: ncol, rows: nrow, chars: [], o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0, dil: 0.5, tdil: 0.5 };
     for (var i = 0; i < ncol * nrow; i++) eye.chars.push(Math.random());
     eyeC.width = ncol * cell * dpr; eyeC.height = nrow * cell * dpr; eg.setTransform(dpr, 0, 0, dpr, 0, 0);
     cols = [];
@@ -923,47 +924,55 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     };
   }
   function segD(px, py, ax, ay, bx, by) { var dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))); return Math.hypot(px - ax - dx * t, py - ay - dy * t); }
-  var SETS = { lid: '#%&@$=#', lash: '/|\\', crease: '-~', lower: '-_~', sclera: '.:', ring: '#[]{}', iris: '01ABCDEF<>{}=', pupil: '@#%&', hl: '+*o' };
+  // ---- dragon eye (the RIGHT eye: outer corner on the left), drawn per cell in code glyphs
+  var SETS = { lid: '#%&@$=', scale: '^/\\<>', ridge: '^^/\\', lower: '_~-', ring: '#[]{}', iris: '01ABCDEF<>{}=', fire: '*+x%', slit: '|!I', hl: '+*' };
   function renderEye() {
     if (!eye) return;
     var C = eye.cols, Rr = eye.rows, cell = eye.cell, o = eye.o;
-    var Pin = [0.04 * C, 0.66 * Rr], Pout = [0.97 * C, 0.38 * Rr];
-    var uy = -0.06 * Rr + (0.96 * Rr + 0.06 * Rr) * (1 - o);           // upper lid control point drops when blinking
-    var U = yAt(Pin, [0.46 * C, uy], Pout), L = yAt(Pin, [0.56 * C, 1.02 * Rr], Pout), K = yAt([0.30 * C, 0.16 * Rr], [0.55 * C, -0.12 * Rr], [0.93 * C, 0.24 * Rr]);
-    var ix = 0.5 * C + eye.gx, iy = 0.55 * Rr + eye.gy, rx = 0.19 * C, ry = 0.43 * Rr;
-    var lashes = [];
-    [0.55, 0.66, 0.76, 0.86, 0.95].forEach(function (t, n) { var p = bez(Pin, [0.46 * C, uy], Pout, t); lashes.push([p[0], p[1] - 1, p[0] + 2 + n * 0.8, p[1] - 4 - n * 0.6]); });
+    // shape is defined for a left eye (inner corner left) and evaluated mirrored -> right eye
+    var Pin = [0.06 * C, 0.6 * Rr], Pout = [0.97 * C, 0.42 * Rr];
+    var uy = 0.06 * Rr + (0.92 * Rr - 0.06 * Rr) * (1 - o);
+    var U = yAt(Pin, [0.5 * C, uy], Pout), L = yAt(Pin, [0.52 * C, 0.98 * Rr], Pout);
+    var ix = 0.5 * C - eye.gx, iy = 0.55 * Rr + eye.gy, R0 = 0.27 * C;                // iris fills the opening (no visible white)
+    var slitW = 0.028 * C * (0.7 + 0.6 * eye.dil);
     eg.clearRect(0, 0, C * cell, Rr * cell);
     eg.font = '600 ' + Math.round(cell * 1.08) + 'px "Geist Mono", ui-monospace, monospace'; eg.textAlign = 'center'; eg.textBaseline = 'middle';
-    var bone = 'rgb(236,233,226)';
+    var bone = [236, 233, 226];
     for (var r = 0; r < Rr; r++) for (var c = 0; c < C; c++) {
-      var x = c + 0.5, y = r + 0.5, kind = null, col = null, a = 1;
-      var u = U(x), l = L(x), inX = x > Pin[0] && x < Pout[0];
-      var lw = 1.1 + 2.6 * Math.max(0, (x - Pin[0]) / (Pout[0] - Pin[0])) ** 1.4;      // lid thickens toward the outer corner
-      if (inX && y <= u + 0.35 && y > u - lw) { kind = 'lid'; col = bone; }
-      else if (x >= Pout[0] - 0.5 && x < Pout[0] + 2.2 && Math.abs(y - (Pout[1] - (x - Pout[0]) * 0.55)) < 0.75) { kind = 'lid'; col = bone; } // outer flick
-      if (!kind) for (var q = 0; q < lashes.length; q++) if (segD(x, y, lashes[q][0], lashes[q][1], lashes[q][2], lashes[q][3]) < 0.5) { kind = 'lash'; col = bone; break; }
-      if (!kind && o > 0.5 && x > 0.32 * C && x < 0.9 * C && Math.abs(y - K(x)) < 0.42) { kind = 'crease'; col = 'rgb(110,108,118)'; }
+      var xs = c + 0.5, y = r + 0.5, x = C - xs;          // mirror: evaluate the left-eye shape at the flipped x
+      var kind = null, col = null, a = 1;
+      var u = U(x), l = L(x), inX = x > Pin[0] && x < Pout[0], tt = Math.max(0, Math.min(1, (x - Pin[0]) / (Pout[0] - Pin[0])));
+      var lw = 1.2 + 2.2 * tt;
+      // brow ridge of angular scales above the lid (fixed, doesn't blink)
+      var ridgeY = yAt([0.0 * C, 0.36 * Rr], [0.5 * C, -0.16 * Rr], [1.0 * C, 0.2 * Rr])(x);
+      if (inX && y > ridgeY - 1.6 - 1.2 * Math.abs(Math.sin(x * 0.9)) && y < ridgeY + 0.4) { kind = 'ridge'; col = mix(BLACK, bone, 0.55); }
+      else if (inX && y <= u + 0.35 && y > u - lw) { kind = 'lid'; col = mix(BLACK, bone, 0.85); }
+      else if (x >= Pout[0] - 0.5 && x < Pout[0] + 3 && Math.abs(y - (Pout[1] - (x - Pout[0]) * 0.35)) < 0.8) { kind = 'lid'; col = mix(BLACK, bone, 0.85); }
+      else if (inX && y > u - lw - 3.2 && y < ridgeY + 3 && y <= u - lw && ((c * 7 + r * 3) % 5 === 0)) { kind = 'scale'; col = mix(BLACK, bone, 0.3); a = 0.8; }
       if (!kind && inX && y > u && y < l) {
-        var dh1 = Math.hypot(x - (ix - 0.06 * C), (y - (iy - 0.17 * Rr)) * 1.0), dh2 = Math.hypot(x - (ix + 0.05 * C), y - (iy + 0.2 * Rr));
-        var d = ((x - ix) / rx) ** 2 + ((y - iy) / ry) ** 2, dp = ((x - ix) / (rx * 0.42)) ** 2 + ((y - iy - 0.04 * Rr) / (ry * 0.5)) ** 2;
-        if (dh1 < 0.06 * C || dh2 < 0.028 * C) { kind = 'hl'; col = '#ffffff'; }
-        else if (dp < 1) { kind = 'pupil'; col = mix(BLACK, accent, 0.28); }
-        else if (d < 1) {
-          if (d > 0.78) { kind = 'ring'; col = mix(BLACK, accent, 0.45); }
-          else { kind = 'iris'; var sh = Math.max(0, Math.min(1, (y - (iy - ry)) / (2 * ry))); col = sh < 0.5 ? mix(BLACK, accent, 0.55 + sh * 0.9) : mix(accent, WHITE, (sh - 0.5) * 0.7); }
-        } else { kind = 'sclera'; col = 'rgb(70,68,78)'; a = 0.7; }
-        if (y < u + 0.9 && kind !== 'hl') { col = mix(BLACK, [120, 116, 128], 0.6); kind = kind === 'sclera' ? 'sclera' : kind; } // lid shadow on the eye
+        var dx = x - ix, dy = (y - iy) * 1.0, d = Math.hypot(dx, dy) / R0, ang = Math.atan2(dy, dx);
+        if (Math.abs(dy) < 0.46 * Rr && Math.abs(dx) < slitW * Math.sqrt(1 - (dy / (0.46 * Rr)) ** 2) + 0.3) { kind = 'slit'; col = mix(BLACK, accent, 0.12); }
+        else if (Math.hypot(x - (ix - 0.07 * C), y - (iy - 0.18 * Rr)) < 0.035 * C) { kind = 'hl'; col = '#ffffff'; }
+        else {
+          // fiery iris: bright core around the slit, radial streaks, dark limbal ring
+          var streak = 0.5 + 0.5 * Math.sin(ang * 13 + Math.sin(ang * 5) * 2);
+          var heat = Math.max(0, 1 - d) * 1.15 + streak * 0.32;
+          if (d > 0.92) { kind = 'ring'; col = mix(BLACK, accent, 0.35); }
+          else if (heat > 0.62) { kind = 'fire'; col = mix(accent, [255, 206, 120], Math.min(1, (heat - 0.62) * 1.6)); }
+          else { kind = 'iris'; col = mix(BLACK, accent, 0.35 + heat * 0.8); }
+        }
+        if (y < u + 0.9 && kind !== 'hl') { col = mix(BLACK, accent, 0.22); kind = 'ring'; }       // lid shadow
       }
-      if (!kind && inX && x > Pin[0] + 0.12 * C && x < Pout[0] - 0.08 * C && Math.abs(y - l) < 0.5) { kind = 'lower'; col = 'rgb(150,146,156)'; }
+      if (!kind && inX && x > Pin[0] + 0.08 * C && x < Pout[0] - 0.05 * C && Math.abs(y - l) < 0.55) { kind = 'lower'; col = mix(BLACK, bone, 0.5); }
+      else if (!kind && inX && y > l + 0.6 && y < l + 2.8 && ((c * 5 + r * 7) % 4 === 0)) { kind = 'scale'; col = mix(BLACK, bone, 0.22); a = 0.7; }
       if (!kind) continue;
       var set = SETS[kind], ch = set[Math.floor(eye.chars[r * C + c] * set.length) % set.length];
-      eg.globalAlpha = a; eg.fillStyle = col; eg.fillText(ch, x * cell, y * cell);
+      eg.globalAlpha = a; eg.fillStyle = col; eg.fillText(ch, xs * cell, y * cell);
     }
     eg.globalAlpha = 1;
   }
 
-  // ---- compose: rain + eye, clipped to the triangle, edges feathered
+  // ---- compose: rain + eye blended in (no cut-out patch), soft edges all round
   function paint() {
     if (!on || !tri) return;
     var t = tri;
@@ -971,24 +980,19 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.save();
     g.beginPath(); g.moveTo(0, t.top); g.lineTo(t.R, t.top); g.lineTo(0, t.bot); g.closePath(); g.clip();
-    g.globalAlpha = 0.75; g.drawImage(rainC, 0, 0, W, H); g.globalAlpha = 1;
-    if (eye) {
-      var ew2 = eye.cols * eye.cell, eh2 = eye.rows * eye.cell, ecx = eye.x + ew2 / 2, ecy = eye.y + eh2 * 0.52;
-      g.save(); g.translate(ecx, ecy); g.scale(1, eh2 / ew2);
-      var hole = g.createRadialGradient(0, 0, ew2 * 0.2, 0, 0, ew2 * 0.58);
-      hole.addColorStop(0, 'rgba(0,0,0,.92)'); hole.addColorStop(1, 'rgba(0,0,0,0)');
-      g.globalCompositeOperation = 'destination-out'; g.fillStyle = hole; g.fillRect(-ew2, -ew2, ew2 * 2, ew2 * 2);
-      g.restore(); g.globalCompositeOperation = 'source-over';
-      g.drawImage(eyeC, eye.x, eye.y, ew2, eh2);
-    }
+    g.globalAlpha = 0.6; g.drawImage(rainC, 0, 0, W, H);
+    if (eye) { g.globalAlpha = 0.82; g.drawImage(eyeC, eye.x, eye.y, eye.cols * eye.cell, eye.rows * eye.cell); }
+    g.globalAlpha = 1;
     g.restore();
-    // feather: fade toward the hypotenuse and softly under the meta row
+    // wide feathering so nothing reads as a pasted rectangle: hypotenuse, top and left edges fade out
     g.globalCompositeOperation = 'destination-in';
     var len = Math.hypot(t.R, t.h), nx = t.h / len, ny = t.R / len, fx = (t.R * t.h * t.h) / (len * len), fy = t.top + (t.R * t.R * t.h) / (len * len);
-    var gr = g.createLinearGradient(fx - nx * 110, fy - ny * 110, fx, fy); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    var gr = g.createLinearGradient(fx - nx * 220, fy - ny * 220, fx, fy); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = gr; g.fillRect(0, 0, W, H);
-    var gt = g.createLinearGradient(0, t.top, 0, t.top + 26); gt.addColorStop(0, 'rgba(0,0,0,0)'); gt.addColorStop(1, 'rgba(0,0,0,1)');
+    var gt = g.createLinearGradient(0, t.top, 0, t.top + 60); gt.addColorStop(0, 'rgba(0,0,0,0)'); gt.addColorStop(1, 'rgba(0,0,0,1)');
     g.fillStyle = gt; g.fillRect(0, 0, W, H);
+    var gl = g.createLinearGradient(0, 0, 60, 0); gl.addColorStop(0, 'rgba(0,0,0,0)'); gl.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = gl; g.fillRect(0, 0, W, H);
     g.globalCompositeOperation = 'source-over';
   }
 
@@ -1027,6 +1031,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // glances: the iris drifts to a new spot every few seconds
     if (now > nextLook) { nextLook = now + 1800 + Math.random() * 2600; eye.tgx = (Math.random() - 0.5) * eye.cols * 0.12; eye.tgy = (Math.random() - 0.5) * eye.rows * 0.1; }
     if (Math.abs(eye.tgx - eye.gx) > 0.02 || Math.abs(eye.tgy - eye.gy) > 0.02) { eye.gx += (eye.tgx - eye.gx) * 0.18; eye.gy += (eye.tgy - eye.gy) * 0.18; dirty = true; }
+    // the slit pupil slowly widens and narrows
+    if (Math.random() < 0.01) eye.tdil = Math.random();
+    if (Math.abs(eye.tdil - eye.dil) > 0.01) { eye.dil += (eye.tdil - eye.dil) * 0.05; dirty = true; }
     // the code that draws the eye keeps changing
     if (now - shuffleT > 140) { shuffleT = now; for (var k = 0; k < eye.chars.length * 0.08; k++) eye.chars[(Math.random() * eye.chars.length) | 0] = Math.random(); dirty = true; }
     if (dirty) renderEye();
@@ -1608,6 +1615,188 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ================= Section backgrounds =================
+   ONE fixed canvas behind the page draws a different ambient effect per section, anchored to that
+   section (so it scrolls with it) and cross-faded by how much of the section is on screen.
+   Scroll speed feeds the effects. DPR 1, ~30fps, idle when no effect section is on screen.
+   Each effect is a self-contained entry in FX: remove/replace one to roll it back. */
+(function () {
+  var root = document.documentElement;
+  if (root.classList.contains('rm') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var cv = document.createElement('canvas'); cv.className = 'bgfx'; cv.setAttribute('aria-hidden', 'true');
+  document.body.prepend(cv);
+  var g = cv.getContext('2d'), W = 0, H = 0, raf = 0, last = 0, lastY = scrollY, vel = 0, t0 = performance.now();
+  var JP = '永遠変化光影流転界序零壹虚空桜花夢心アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモラリルレロワン',
+      CODE = '0123456789ABCDEF{}[]<>/=#$%*+;:_|', HEX = '0123456789ABCDEF';
+  var pick = function (s) { return s[(Math.random() * s.length) | 0]; };
+  var accent = '#d946ef', pal = [];
+  function readAccent() {
+    accent = getComputedStyle(root).getPropertyValue('--ember').trim() || '#d946ef';
+    pal = [accent, accent, '#c084fc', '#f472b6', '#fb7185', '#e879f9', '#a78bfa'];
+  }
+  var ease = function (x) { return x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x); };
+  var edge = function (y, h) { return ease(y / 160) * ease((h - y) / 160); };   // feather near section top/bottom
+
+  var FX = {
+    /* 01 About: kana/code motes drifting up, with depth parallax */
+    about: {
+      init: function (s) { s.p = []; for (var i = 0; i < 70; i++) s.p.push({ x: Math.random(), y: Math.random() * s.h, d: 0.35 + Math.random() * 0.65, ch: pick(Math.random() < 0.5 ? JP : CODE), c: Math.random() < 0.3 }); },
+      draw: function (s, top, dt, a) {
+        g.textAlign = 'center';
+        for (var i = 0; i < s.p.length; i++) {
+          var p = s.p[i];
+          p.y -= (10 + 22 * p.d + Math.abs(vel) * 0.04 * p.d) * dt;
+          if (p.y < 0) { p.y += s.h; p.x = Math.random(); p.ch = pick(Math.random() < 0.5 ? JP : CODE); }
+          if (Math.random() < 0.01) p.ch = pick(Math.random() < 0.5 ? JP : CODE);
+          var y = top + p.y - top * (1 - p.d) * 0.25;
+          if (y < -20 || y > H + 20) continue;
+          g.globalAlpha = a * 0.22 * p.d * edge(p.y, s.h);
+          g.fillStyle = p.c ? accent : '#ece9e2';
+          g.font = '500 ' + Math.round(9 + 9 * p.d) + 'px "Geist Mono", ui-monospace, monospace';
+          g.fillText(p.ch, p.x * W, y);
+        }
+      }
+    },
+    /* 02 Disciplines: random coloured squares popping on a faint grid */
+    disciplines: {
+      init: function (s) { s.cell = W < 700 ? 24 : 30; s.sq = []; s.acc = 0; },
+      draw: function (s, top, dt, a) {
+        var C = s.cell, y0 = Math.max(0, Math.floor(-top / C)), y1 = Math.min(Math.ceil(s.h / C), Math.ceil((H - top) / C)), cols = Math.ceil(W / C);
+        // faint grid dots for the visible rows
+        g.globalAlpha = a * 0.07; g.fillStyle = '#ece9e2';
+        for (var r = y0; r < y1; r++) { var yy = top + r * C + C / 2; for (var c = 0; c < cols; c++) g.fillRect(c * C + C / 2 - 1, yy - 1, 2, 2); }
+        // spawn pops in the visible band (faster while scrolling)
+        s.acc += dt * (14 + Math.min(40, Math.abs(vel) * 0.03));
+        while (s.acc > 1 && s.sq.length < 90) { s.acc--; s.sq.push({ c: (Math.random() * cols) | 0, r: y0 + ((Math.random() * Math.max(1, y1 - y0)) | 0), t: 0, life: 1.2 + Math.random() * 1.8, col: pick(pal), z: 0.45 + Math.random() * 0.4 }); }
+        for (var i = s.sq.length - 1; i >= 0; i--) {
+          var q = s.sq[i]; q.t += dt;
+          if (q.t > q.life) { s.sq.splice(i, 1); continue; }
+          var k = q.t / q.life, pop = k < 0.25 ? ease(k / 0.25) : k > 0.7 ? ease((1 - k) / 0.3) : 1;
+          var sz = C * q.z * (0.6 + 0.4 * pop), cx = q.c * C + C / 2, cy = top + q.r * C + C / 2;
+          g.globalAlpha = a * 0.42 * pop * edge(q.r * C, s.h); g.fillStyle = q.col;
+          g.fillRect(cx - sz / 2, cy - sz / 2, sz, sz);
+        }
+      }
+    },
+    /* 03 Work: code packets streaking sideways */
+    work: {
+      init: function (s) { s.k = []; for (var i = 0; i < 26; i++) s.k.push(this.mk(s, true)); },
+      mk: function (s, any) { var dir = Math.random() < 0.5 ? 1 : -1; return { y: Math.random() * s.h, x: any ? Math.random() * W : (dir > 0 ? -300 : W + 300), v: (40 + Math.random() * 120) * dir, L: 60 + Math.random() * 220, txt: '0x' + pick(HEX) + pick(HEX) + pick(HEX) + pick(HEX), c: Math.random() < 0.4 }; },
+      draw: function (s, top, dt, a) {
+        g.font = '500 10px "Geist Mono", ui-monospace, monospace'; g.textAlign = 'left';
+        for (var i = 0; i < s.k.length; i++) {
+          var p = s.k[i]; p.x += (p.v + Math.sign(p.v) * Math.abs(vel) * 0.25) * dt;
+          if (p.x < -400 || p.x > W + 400) { s.k[i] = this.mk(s, false); continue; }
+          var y = top + p.y; if (y < -10 || y > H + 10) continue;
+          var al = a * edge(p.y, s.h), tail = p.x - Math.sign(p.v) * p.L;
+          var gr = g.createLinearGradient(tail, 0, p.x, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, p.c ? accent : '#ece9e2');
+          g.globalAlpha = al * 0.28; g.fillStyle = gr; g.fillRect(Math.min(tail, p.x), y, p.L, 1);
+          g.globalAlpha = al * 0.32; g.fillStyle = p.c ? accent : '#ece9e2'; g.fillText(p.txt, p.v > 0 ? p.x + 6 : p.x - 46, y + 3.5);
+        }
+      }
+    },
+    /* 04 GitHub: a slowly scrolling commit graph (lanes, commits, merges) */
+    github: {
+      init: function (s) {
+        s.lanes = Math.max(4, Math.min(7, Math.round(W / 260))); s.gap = 70; s.len = 40; s.c = [];
+        for (var i = 0; i < s.len; i++) s.c.push({ lane: (Math.random() * s.lanes) | 0, merge: Math.random() < 0.22 ? ((Math.random() * s.lanes) | 0) : -1, h: pick(HEX) + pick(HEX) + pick(HEX) + pick(HEX) + pick(HEX) + pick(HEX) + pick(HEX) });
+      },
+      draw: function (s, top, dt, a) {
+        var lx = function (l) { return W * (0.08 + 0.84 * (l + 0.5) / s.lanes); };
+        var span = s.len * s.gap, off = ((performance.now() - t0) / 1000 * 18) % span;
+        g.lineWidth = 1; g.font = '500 9px "Geist Mono", ui-monospace, monospace'; g.textAlign = 'left';
+        for (var l = 0; l < s.lanes; l++) { g.globalAlpha = a * 0.07; g.strokeStyle = '#ece9e2'; g.beginPath(); g.moveTo(lx(l), Math.max(0, top)); g.lineTo(lx(l), Math.min(H, top + s.h)); g.stroke(); }
+        for (var rep = -1; rep < Math.ceil(s.h / span) + 1; rep++) for (var i = 0; i < s.len; i++) {
+          var cm = s.c[i], sy = rep * span + i * s.gap - off, y = top + sy;
+          if (y < -40 || y > H + 40 || sy < 0 || sy > s.h) continue;
+          var x = lx(cm.lane), al = a * edge(sy, s.h);
+          if (cm.merge >= 0 && cm.merge !== cm.lane) {
+            var mx = lx(cm.merge); g.globalAlpha = al * 0.22; g.strokeStyle = accent;
+            g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x, y + s.gap * 0.6, mx, y + s.gap * 0.4, mx, y + s.gap); g.stroke();
+          }
+          g.globalAlpha = al * 0.55; g.fillStyle = '#0c0c0d'; g.beginPath(); g.arc(x, y, 4.5, 0, 6.29); g.fill();
+          g.strokeStyle = cm.merge >= 0 ? accent : '#ece9e2'; g.globalAlpha = al * 0.45; g.stroke();
+          g.globalAlpha = al * 0.2; g.fillStyle = '#ece9e2'; g.fillText(cm.h, x + 9, y + 3);
+        }
+      }
+    },
+    /* 05 Stack: a memory dump of hex bytes, a few flipping and glowing */
+    stack: {
+      init: function (s) {
+        s.cw = 30; s.ch = 22; s.cols = Math.ceil(W / s.cw); s.rows = Math.ceil(s.h / s.ch);
+        s.buf = document.createElement('canvas'); s.buf.width = s.cols * s.cw; s.buf.height = s.rows * s.ch; s.bg = s.buf.getContext('2d');
+        s.bg.font = '500 11px "Geist Mono", ui-monospace, monospace'; s.bg.textBaseline = 'middle'; s.bg.fillStyle = 'rgba(236,233,226,0.075)';
+        for (var r = 0; r < s.rows; r++) for (var c = 0; c < s.cols; c++) s.bg.fillText(pick(HEX) + pick(HEX), c * s.cw + 6, r * s.ch + s.ch / 2);
+        s.hot = [];
+      },
+      draw: function (s, top, dt, a) {
+        var sy = Math.max(0, -top), ey = Math.min(s.buf.height, H - top);
+        if (ey > sy) {
+          // flip a few bytes in the visible rows
+          var n = 6 + Math.min(30, Math.abs(vel) * 0.02);
+          for (var i = 0; i < n; i++) {
+            var c = (Math.random() * s.cols) | 0, r = ((sy / s.ch) + Math.random() * ((ey - sy) / s.ch)) | 0, b = pick(HEX) + pick(HEX);
+            s.bg.clearRect(c * s.cw, r * s.ch, s.cw, s.ch); s.bg.fillText(b, c * s.cw + 6, r * s.ch + s.ch / 2);
+            if (Math.random() < 0.35 && s.hot.length < 60) s.hot.push({ c: c, r: r, b: b, t: 0 });
+          }
+          g.globalAlpha = a; g.drawImage(s.buf, 0, sy, s.buf.width, ey - sy, 0, top + sy, s.buf.width, ey - sy);
+        }
+        g.font = '500 11px "Geist Mono", ui-monospace, monospace'; g.textBaseline = 'middle'; g.textAlign = 'left';
+        for (var j = s.hot.length - 1; j >= 0; j--) {
+          var h = s.hot[j]; h.t += dt; if (h.t > 0.9) { s.hot.splice(j, 1); continue; }
+          g.globalAlpha = a * 0.6 * (1 - h.t / 0.9) * edge(h.r * s.ch, s.h); g.fillStyle = accent;
+          g.fillText(h.b, h.c * s.cw + 6, top + h.r * s.ch + s.ch / 2);
+        }
+        g.textBaseline = 'alphabetic';
+        // soften the dump's top/bottom edges
+        g.globalAlpha = 1; g.globalCompositeOperation = 'destination-out';
+        var f1 = g.createLinearGradient(0, top, 0, top + 160); f1.addColorStop(0, 'rgba(0,0,0,1)'); f1.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = f1; g.fillRect(0, top, W, 160);
+        var f2 = g.createLinearGradient(0, top + s.h - 160, 0, top + s.h); f2.addColorStop(0, 'rgba(0,0,0,0)'); f2.addColorStop(1, 'rgba(0,0,0,1)');
+        g.fillStyle = f2; g.fillRect(0, top + s.h - 160, W, 160);
+        g.globalCompositeOperation = 'source-over';
+      }
+    }
+  };
+
+  var secs = Object.keys(FX).map(function (id) { var el = document.getElementById(id); return el && { id: id, el: el, fx: FX[id], w: 0, h: 0, ready: false }; }).filter(Boolean);
+  function size() {
+    W = innerWidth; H = innerHeight; cv.width = W; cv.height = H;
+    secs.forEach(function (s) { s.h = s.el.offsetHeight; s.fx.init(s); s.ready = true; });
+  }
+  var accentT = 0;
+  function frame(now) {
+    raf = 0;
+    if (document.hidden) return;
+    var any = false;
+    if (now - last >= 33) {
+      var dt = Math.min(0.08, (now - (last || now)) / 1000); last = now;
+      var y = scrollY; vel += ((y - lastY) / Math.max(dt, 0.016) - vel) * 0.2; lastY = y;
+      if (now - accentT > 1000) { accentT = now; readAccent(); }
+      g.globalAlpha = 1; g.clearRect(0, 0, W, H);
+      for (var i = 0; i < secs.length; i++) {
+        var s = secs[i], r = s.el.getBoundingClientRect();
+        var vis = Math.max(0, Math.min(r.bottom, H) - Math.max(r.top, 0)) / Math.min(H, r.height || 1);
+        s.w += (ease(vis * 1.4) - s.w) * 0.12;
+        if (s.w < 0.01 || r.bottom < -50 || r.top > H + 50) continue;
+        any = true;
+        s.fx.draw(s, r.top, dt, s.w);
+      }
+      g.globalAlpha = 1;
+      if (!any) { g.clearRect(0, 0, W, H); }
+    } else any = true;
+    if (any || secs.some(function (s) { var r = s.el.getBoundingClientRect(); return r.bottom > 0 && r.top < H; })) raf = requestAnimationFrame(frame);
+  }
+  function kick() { if (!raf && !document.hidden) raf = requestAnimationFrame(frame); }
+  addEventListener('scroll', kick, { passive: true });
+  document.addEventListener('visibilitychange', kick);
+  var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { size(); kick(); }, 200); });
+  new ResizeObserver(function () { clearTimeout(rt); rt = setTimeout(function () { size(); kick(); }, 300); }).observe(document.body);
+  readAccent();
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { size(); kick(); });
+})();
+</script>
 <script>
 (() => {
   'use strict';
