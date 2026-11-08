@@ -902,14 +902,17 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     if (!on) return;
     cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
     rainC.width = cv.width; rainC.height = cv.height; rg.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // rain area: everything above the name, plus the full height to the right of the name (under the dots)
+    // rain area (left side only): the space above the name (fading out toward the middle) plus the
+    // wedge left of the name - wide beside "Jan", narrowing toward the bottom-left corner
     var nr0 = document.createRange(); nr0.selectNodeContents(name); var nb = nr0.getBoundingClientRect();
-    var rightX = Math.min(W - 40, nb.right - hr.left + 40);
-    tri = { top: top, bot: bot, R: R, h: h, rightX: rightX, low: H - 90 };
+    var leftX = Math.max(60, nb.left - hr.left - 14), endX = W * 0.62, low = H - 50;
+    tri = { top: top, bot: bot, R: R, h: h, leftX: leftX, endX: endX, low: low };
     maskC.width = W; maskC.height = H;
-    mg.clearRect(0, 0, W, H); mg.filter = 'blur(28px)'; mg.fillStyle = '#000';
-    mg.fillRect(-60, top + 24, W + 120, bot - top - 36);
-    mg.fillRect(rightX, top + 24, W - rightX + 60, H - 90 - top - 24);
+    mg.clearRect(0, 0, W, H); mg.filter = 'blur(26px)'; mg.fillStyle = '#000';
+    mg.beginPath();
+    mg.moveTo(-60, top + 24); mg.lineTo(endX, top + 24); mg.lineTo(endX * 0.82, bot - 10);   // above the name
+    mg.lineTo(leftX, bot - 10); mg.lineTo(leftX * 0.25, low); mg.lineTo(-60, low);            // the left wedge
+    mg.closePath(); mg.fill();
     mg.filter = 'none';
     // eye box: as big as fits inside the triangle
     // biggest eye that fits in the widest part of the triangle (top-left), with a little air
@@ -925,7 +928,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     for (var i = 0; i < ncol * nrow; i++) eye.chars.push(Math.random());
     eyeC.width = ncol * cell * dpr; eyeC.height = nrow * cell * dpr; eg.setTransform(dpr, 0, 0, dpr, 0, 0);
     cols = [];
-    for (var x = 8; x < W; x += 16) cols.push({ x: x, y: top + Math.random() * h, v: 0.45 + Math.random() * 0.6, max: x > rightX - 20 ? H - 90 : bot });
+    for (var x = 8; x < endX; x += 16) cols.push({ x: x, y: top + Math.random() * h, v: 0.45 + Math.random() * 0.6, max: x < leftX ? low : bot });
     readAccent(); renderEye(); paint();
   }
 
