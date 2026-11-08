@@ -58,15 +58,17 @@ html{-webkit-text-size-adjust:100%;color-scheme:dark}
 :where(html.accent-fade) *,:where(html.accent-fade) *::before,:where(html.accent-fade) *::after{
   transition-property:color,background-color,border-color,fill,stroke,box-shadow,text-decoration-color,outline-color;
   transition-duration:1100ms;transition-timing-function:cubic-bezier(0.77,0,0.175,1);transition-delay:0s}
-html{scrollbar-gutter:stable} /* locking scroll (easter egg, menu) must not change the page width */
-/* Scrollbar blends into the page: thin, no visible track, thumb tinted with the live accent */
-html{background:var(--ink);scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--ember) 45%,#2a2a2e) transparent}
-@supports not (scrollbar-color:auto){
-  ::-webkit-scrollbar{width:8px;height:8px;background:transparent}
-  ::-webkit-scrollbar-track{background:transparent}
-  ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ember) 45%,#2a2a2e);border-radius:8px;border:2px solid var(--ink)}
-  ::-webkit-scrollbar-thumb:hover{background:var(--ember)}
-}
+/* No native page scrollbar (no gutter, no edge cut, and locking scroll never changes the width).
+   A slim floating thumb (.sbar) is drawn over the page instead. */
+html{background:var(--ink);scrollbar-width:none}
+html::-webkit-scrollbar{display:none}
+.sbar{position:fixed;top:0;right:0;width:14px;height:100%;z-index:80;pointer-events:none}
+.sbar i{position:absolute;top:0;right:3px;width:4px;border-radius:4px;pointer-events:auto;cursor:grab;touch-action:none;
+  background:color-mix(in srgb,var(--ember) 70%,transparent);opacity:0;transition:opacity .5s ease,width .2s ease}
+.sbar.on i,.sbar i:hover,.sbar.drag i{opacity:1}
+.sbar i:hover,.sbar.drag i{width:6px;background:var(--ember)}
+.sbar.drag i{cursor:grabbing}
+@media (hover:none){.sbar i{pointer-events:none}}
 html.lenis,html.lenis body{height:auto}
 .lenis.lenis-smooth{scroll-behavior:auto!important}
 .lenis.lenis-stopped{overflow:hidden}
@@ -2154,6 +2156,37 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   document.querySelectorAll('main section[id]').forEach(s => secIO.observe(s));
   cleanups.push(() => secIO.disconnect());
 
+  /* ---------- Floating scrollbar (native one is hidden so the page runs edge to edge) ---------- */
+  (function floatBar() {
+    const bar = document.createElement('div'); bar.className = 'sbar'; bar.setAttribute('aria-hidden', 'true');
+    const th = document.createElement('i'); bar.appendChild(th); document.body.appendChild(bar);
+    let vh = innerHeight, sh = 0, h = 0, raf = 0, hideT = 0, drag = null;
+    const measure = () => { vh = innerHeight; sh = document.documentElement.scrollHeight; h = Math.max(36, vh * vh / Math.max(sh, 1)); th.style.height = h + 'px'; paint(); };
+    const paint = () => {
+      raf = 0;
+      const max = sh - vh;
+      bar.style.display = max > 4 ? '' : 'none';
+      th.style.transform = `translateY(${max > 0 ? (scrollY / max) * (vh - h) : 0}px)`;
+    };
+    const show = () => { bar.classList.add('on'); clearTimeout(hideT); hideT = setTimeout(() => bar.classList.remove('on'), 1100); };
+    addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(paint); show(); }, { passive: true });
+    addEventListener('resize', measure);
+    new ResizeObserver(measure).observe(document.body);
+    // near the right edge: reveal it so it can be grabbed
+    addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && innerWidth - e.clientX < 24) show(); }, { passive: true });
+    th.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); th.setPointerCapture(e.pointerId);
+      drag = { y: e.clientY, s: scrollY }; bar.classList.add('drag');
+    });
+    th.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const y = drag.s + (e.clientY - drag.y) * (sh - vh) / Math.max(1, vh - h);
+      lenis ? lenis.scrollTo(y, { immediate: true }) : scrollTo(0, y);
+    });
+    const end = () => { drag = null; bar.classList.remove('drag'); show(); };
+    th.addEventListener('pointerup', end); th.addEventListener('pointercancel', end);
+    measure();
+  })();
 
   if (!hasGSAP) {
     HS.prepare(document.querySelector('.hero-name'));
