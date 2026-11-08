@@ -1379,7 +1379,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       const bend = (rnd() - 0.5) * 0.35;
       const mxp = x + Math.cos(ang + bend) * len * 0.5, myp = y + Math.sin(ang + bend) * len * 0.5;
       const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
-      segs.push({ x1: x, y1: y, x2: mxp, y2: myp, w }, { x1: mxp, y1: myp, x2, y2, w: w * 0.85 });
+      segs.push({ x1: x, y1: y, x2: mxp, y2: myp, w, w2: w * 0.85 }, { x1: mxp, y1: myp, x2, y2, w: w * 0.85, w2: w * 0.66 });
       if (depth === 0) { tips.push({ x: x2, y: y2 }); return; }
       const n = depth >= 3 ? 2 + (rnd() < 0.5 ? 1 : 0) : 2;
       const droop = depth <= 1 ? (Math.cos(ang) > 0 ? 0.35 : -0.35) : 0; // outer twigs bend down
@@ -1391,16 +1391,31 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 
     function buildTree(rx, gy, tw, th, out) {
       const segs = [], tips = [];
-      const trunkW = Math.max(16, tw * 0.07), trunkH = th * 0.3;
-      const lean = (rnd() - 0.5) * 0.15;
-      const tx = rx + Math.cos(-Math.PI / 2 + lean) * trunkH, ty = gy + Math.sin(-Math.PI / 2 + lean) * trunkH;
-      segs.push({ x1: rx, y1: gy, x2: (rx + tx) / 2 + (rnd() - 0.5) * trunkW, y2: (gy + ty) / 2, w: trunkW * 1.25 });
-      segs.push({ x1: (rx + tx) / 2, y1: (gy + ty) / 2, x2: tx, y2: ty, w: trunkW });
+      const trunkW = Math.max(28, tw * 0.115), trunkH = th * 0.32;
+      // trunk centre-line: gentle S-curve and lean; width flares at the root and tapers toward the fork
+      const lean = (rnd() - 0.5) * trunkW * 0.9, ph = rnd() * 6.28, N = 14;
+      let px = rx, py = gy, pw = trunkW * 1.9;
+      for (let i = 1; i <= N; i++) {
+        const t = i / N;
+        const x = rx + lean * t * t + Math.sin(t * Math.PI * 1.2 + ph) * trunkW * 0.16 - Math.sin(ph) * trunkW * 0.16;
+        const y = gy - trunkH * t;
+        const w = trunkW * (1 + 0.9 * Math.pow(1 - t, 6)) * (1 - 0.22 * t);
+        segs.push({ x1: px, y1: py, x2: x, y2: y, w: pw, w2: w, trunk: true });
+        px = x; py = y; pw = w;
+      }
+      const tx = px, ty = py;
+      // roots spreading along the ground
+      [-1, 1, rnd() < 0.5 ? -1 : 1].forEach((dir, k) => {
+        const len = trunkW * (1.1 + rnd() * 0.9), sx = rx + dir * trunkW * 0.35, sy = gy - trunkW * (0.25 + rnd() * 0.15);
+        const mx = sx + dir * len * 0.55, my = gy - trunkW * 0.08;
+        segs.push({ x1: sx, y1: sy, x2: mx, y2: my, w: trunkW * 0.55, w2: trunkW * 0.3, trunk: true });
+        segs.push({ x1: mx, y1: my, x2: sx + dir * len, y2: gy + 2, w: trunkW * 0.3, w2: 5, trunk: true });
+      });
       const limbs = 3 + (rnd() < 0.5 ? 1 : 0);
       for (let k = 0; k < limbs; k++) {
         const f = limbs === 1 ? 0.5 : k / (limbs - 1);
         const a = -Math.PI + 0.35 + f * (Math.PI - 0.7) + (rnd() - 0.5) * 0.2;
-        branch(tx, ty, a, th * 0.2 * (0.85 + rnd() * 0.3), trunkW * 0.62, 4, segs, tips);
+        branch(tx, ty, a, th * 0.2 * (0.85 + rnd() * 0.3), trunkW * 0.6, 4, segs, tips);
       }
       let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
       tips.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
@@ -1427,17 +1442,30 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     }
 
     /* ---- render the whole scene once (queued, painted in slices) ---- */
+    const BARK_SHADES = ['#7a5644', '#684837', '#563b2e', '#463026', '#37251f', '#2a1c18', '#1f1513']; // lit -> shadow
+    const MOSS = ['#4d4a30', '#3f3d29'];
     function barkSeg(sg) {
       const len = Math.hypot(sg.x2 - sg.x1, sg.y2 - sg.y1), ang = Math.atan2(sg.y2 - sg.y1, sg.x2 - sg.x1);
-      const gs = Math.max(7, Math.min(15, sg.w * 0.55));
-      const steps = Math.max(1, Math.round(len / (gs * 0.7)));
-      const cols = Math.max(1, Math.round(sg.w / (gs * 0.75)));
+      const w1 = sg.w, w2 = sg.w2 == null ? sg.w : sg.w2, wmax = Math.max(w1, w2);
+      const gs = Math.max(7, Math.min(sg.trunk ? 13 : 11, wmax * 0.42));
+      const steps = Math.max(1, Math.ceil(len / (gs * 0.6)));
       const nx = -Math.sin(ang), ny = Math.cos(ang);
+      const flip = nx < 0 ? -1 : 1; // keep "left" = screen-left so the light is consistent
       for (let i = 0; i <= steps; i++) {
-        const px = sg.x1 + (sg.x2 - sg.x1) * i / steps, py = sg.y1 + (sg.y2 - sg.y1) * i / steps;
+        const t = i / steps, w = w1 + (w2 - w1) * t;
+        const px = sg.x1 + (sg.x2 - sg.x1) * t, py = sg.y1 + (sg.y2 - sg.y1) * t;
+        const cols = Math.max(1, Math.round(w / (gs * 0.62)));
         for (let c = 0; c < cols; c++) {
-          const o = (c - (cols - 1) / 2) * gs * 0.75;
-          stamp(bctx, pick(BARK_CH), pick(BARK), gs, px + nx * o, py + ny * o, 0.75 + rnd() * 0.25, 600);
+          const u = cols === 1 ? 0 : c / (cols - 1) * 2 - 1;          // -1 .. 1 across the limb
+          const o = u * w / 2;
+          const sx = px + nx * o, sy = py + ny * o;
+          const su = u * flip;                                          // -1 = screen-left (lit side)
+          const streak = Math.sin(su * 9 + sg.x1 * 0.05) * 0.18;       // vertical bark ridges
+          let dark = 0.42 + su * 0.32 + Math.abs(u) ** 3 * 0.35 + streak + (rnd() - 0.5) * 0.18;
+          dark = Math.max(0, Math.min(0.999, dark));
+          let col = BARK_SHADES[(dark * BARK_SHADES.length) | 0];
+          if (sg.trunk && rnd() < 0.035) col = pick(MOSS);
+          stamp(bctx, pick(BARK_CH), col, gs, sx, sy, Math.abs(u) > 0.85 ? 0.75 : 0.95, 600);
         }
       }
     }
