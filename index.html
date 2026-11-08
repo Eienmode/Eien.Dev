@@ -1329,7 +1329,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 
     const base = document.createElement('canvas'), bctx = base.getContext('2d');
     let W = 0, H = 0, dpr = 1, blooms = [], grid = new Map(), strands = [], petals = [], glitches = [], lit = new Map();
-    let petalSprites = [], visible = false, raf = 0, t0 = performance.now();
+    let petalSprites = [], bloomSprites = {}, hgrid = new Map(), visible = false, raf = 0, t0 = performance.now();
     let mx = -1e4, my = -1e4, hovering = false, lastSpawn = 0;
     const CELL = 48;
     const key = (cx, cy) => cx * 65536 + cy;
@@ -1376,7 +1376,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         for (let i = 0; i < c; i++) {
           const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r;
           const x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.8;
-          tree.blooms.push({ x, y, s: fs * (0.7 + rnd() * 0.55), ch: pick(BLOOM), c: shade(y) });
+          tree.blooms.push({ x, y, s: fs * (0.7 + rnd() * 0.55), ch: pick(BLOOM), c: shade(y), hv: rnd() < 0.18 });
         }
       });
       // dense dome fill (top-heavy, like a full sakura crown)
@@ -1385,7 +1385,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd());
         let x = cx + Math.cos(a) * d * rxE, y = cy + Math.sin(a) * d * ryE * 0.9;
         if (y > cy + ryE * 0.35 && rnd() < 0.6) continue; // thinner underside so branches show
-        tree.blooms.push({ x, y, s: fs * (0.65 + rnd() * 0.6), ch: pick(BLOOM), c: shade(y) });
+        tree.blooms.push({ x, y, s: fs * (0.65 + rnd() * 0.6), ch: pick(BLOOM), c: shade(y), hv: rnd() < 0.18 });
       }
       // weeping strands hang from the lower edge of the crown
       const sc = Math.round(rxE / 8);
@@ -1470,6 +1470,20 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       })));
     }
 
+    // glowing blossom sprites for the hover effect (glow baked in once, no shadowBlur per frame)
+    const BS = 24, BP = 40;
+    function makeBloomSprites() {
+      bloomSprites = {};
+      BLOOM.forEach(ch => {
+        const c = document.createElement('canvas'); c.width = c.height = Math.ceil(BP * dpr);
+        const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `700 ${BS}px ${FONT}`;
+        g.shadowColor = 'rgba(244,114,182,.9)'; g.shadowBlur = 9; g.fillStyle = PINKS[0];
+        g.fillText(ch, BP / 2, BP / 2); g.shadowBlur = 0; g.fillText(ch, BP / 2, BP / 2);
+        bloomSprites[ch] = c;
+      });
+    }
+
     function layout() {
       const r = sec.getBoundingClientRect();
       W = r.width; H = r.height;
@@ -1485,9 +1499,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         const x = Math.max(gapL + 20, (gapL + gapR) / 2);
         buildTree(x, gy, Math.min(620, Math.max(360, (gapR - gapL) * 2)), H * 0.8, trees);
         const right = W - (kr.right - r.left);
-        if (right > 240) buildTree(W - right / 2, gy, right * 1.5, H * 0.62, trees);
+        if (right > 240) buildTree(W - right / 2, gy, right * 1.5, H * 0.8, trees);
         const left = cr.left - r.left;
-        if (left > 260) buildTree(left / 2, gy, left * 1.5, H * 0.55, trees);
+        if (left > 260) buildTree(left / 2, gy, left * 1.5, H * 0.75, trees);
       } else {
         buildTree(W * 0.78, gy, W * 0.75, H * 0.42, trees);
       }
@@ -1505,16 +1519,18 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         }
         bctx.globalCompositeOperation = 'source-over';
       }
-      blooms = []; grid = new Map(); strands = [];
+      blooms = []; grid = new Map(); hgrid = new Map(); strands = [];
       trees.forEach(tr => {
         tr.blooms.forEach(b => {
           blooms.push(b);
           const k = key(Math.floor(b.x / CELL), Math.floor(b.y / CELL));
           (grid.get(k) || grid.set(k, []).get(k)).push(b);
+          if (b.hv) (hgrid.get(k) || hgrid.set(k, []).get(k)).push(b);
         });
         tr.strandAnchors.forEach(st => strands.push(Object.assign(st, strandSprite(st))));
       });
       makePetalSprites();
+      makeBloomSprites();
       petals = []; glitches = []; lit.clear();
       draw(performance.now());
     }
@@ -1539,10 +1555,10 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       if (hovering) {
         const c0x = Math.floor((mx - R) / CELL), c1x = Math.floor((mx + R) / CELL), c0y = Math.floor((my - R) / CELL), c1y = Math.floor((my + R) / CELL);
         for (let gx = c0x; gx <= c1x; gx++) for (let gy = c0y; gy <= c1y; gy++) {
-          const cell = grid.get(key(gx, gy)); if (!cell) continue;
+          const cell = hgrid.get(key(gx, gy)); if (!cell) continue;
           for (const b of cell) {
             const d = Math.hypot(b.x - mx, b.y - my);
-            if (d < R) { seen.add(b); if (!lit.has(b)) lit.set(b, 0); }
+            if (d < R && (lit.has(b) || lit.size < 70)) { seen.add(b); if (!lit.has(b)) lit.set(b, 0); }
           }
         }
         if (now - lastSpawn > 60 && seen.size) { lastSpawn = now; const arr = [...seen]; spawnPetal(pickR(arr).x, pickR(arr).y, true); if (Math.random() < 0.3) glitches.push({ b: pickR(arr), f: 4 }); }
@@ -1592,16 +1608,15 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }
       // hovered blossoms: lifted, larger, glowing
       if (lit.size) {
-        ctx.shadowColor = 'rgba(244,114,182,.85)';
         lit.forEach((h, b) => {
+          const sp = bloomSprites[b.ch]; if (!sp) return;
           const dx = b.x - mx, dy = b.y - my, d = Math.hypot(dx, dy) || 1;
           const push = h * h * 16, x = b.x + dx / d * push, y = b.y + dy / d * push - h * 6;
-          ctx.shadowBlur = h * 12;
-          ctx.font = `700 ${(b.s * (1 + h * 0.6)) | 0}px ${FONT}`;
-          ctx.fillStyle = h > 0.55 ? PINKS[0] : PINKS[Math.max(0, b.c - 3)];
-          ctx.fillText(b.ch, x, y);
+          const sz = b.s * (1 + h * 0.6) * (BP / BS);
+          ctx.globalAlpha = Math.min(1, 0.25 + h);
+          ctx.drawImage(sp, x - sz / 2, y - sz / 2, sz, sz);
         });
-        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
       }
       // falling petals (pre-rendered sprites)
       for (const p of petals) {
