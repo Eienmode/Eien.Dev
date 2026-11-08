@@ -491,7 +491,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   font-size:inherit;color:transparent;overflow:hidden;vertical-align:middle;margin:0 .06em;transform:translateY(-.05em)}
 .readme-roles b{width:.28em;height:.28em;margin:0 .22em}
 /* "Eien" <-> 永遠 code transition */
-.eien{display:inline-block;white-space:nowrap}
+.eien{display:inline-block;white-space:nowrap;overflow:visible;vertical-align:baseline} /* JS fixes its width so scrambling never reflows */
 .eien:lang(ja),.eien.is-ja{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic UI","Yu Gothic",var(--display);font-weight:500;letter-spacing:.04em}
 .eien .s{color:var(--ember);font-family:var(--mono);font-weight:400}
 .readme-co{margin:.8rem 0 0;color:var(--mute)}
@@ -1682,6 +1682,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       if (!W || !H) return;
       dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      cv.style.width = W + 'px'; cv.style.height = H + 'px'; // never stretch the bitmap if the section briefly changes size
       atlas = new Map();
       const card = sec.querySelector('.contact-card'), copy = sec.querySelector('.contact .h2');
       const kr = card && card.getBoundingClientRect(), cr = copy && copy.getBoundingClientRect();
@@ -1831,7 +1832,16 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     }, { rootMargin: '1800px' }).observe(sec);
     document.addEventListener('visibilitychange', kick);
     let rt, lastW = 0;
-    new ResizeObserver(() => { const w = sec.clientWidth; if (!built || w === lastW) return; lastW = w; clearTimeout(rt); rt = setTimeout(layout, 200); }).observe(sec);
+    // rebuild on a real size change only (width, or a lasting height change); brief jitters are ignored
+    new ResizeObserver(() => {
+      if (!built) return;
+      clearTimeout(rt);
+      rt = setTimeout(() => {
+        const w = sec.clientWidth, h = sec.clientHeight;
+        if (w === lastW && Math.abs(h - H) < 24) return;
+        lastW = w; layout();
+      }, 400);
+    }).observe(sec);
   })();
 
   /* ---------- Work accordion ---------- */
@@ -2284,6 +2294,18 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     const still = document.documentElement.classList.contains('rm') || matchMedia('(prefers-reduced-motion: reduce)').matches;
     const WORDS = ['Eien', '永遠'], POOL = '01<>/{}[]=#$%*+;:アイエンネ永遠ABCDEF';
     const esc = (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c);
+    // reserve a constant slot = the wider of "Eien" / 永遠, so the scramble (wider mono glyphs) can't wrap the line
+    const fit = () => els.forEach(el => {
+      const keep = el.innerHTML, ja = el.classList.contains('is-ja');
+      el.style.width = 'auto';
+      el.classList.remove('is-ja'); el.textContent = WORDS[0]; const a = el.getBoundingClientRect().width;
+      el.classList.add('is-ja'); el.textContent = WORDS[1]; const b = el.getBoundingClientRect().width;
+      el.classList.toggle('is-ja', ja); el.innerHTML = keep;
+      el.style.width = Math.ceil(Math.max(a, b)) + 'px';
+    });
+    fit();
+    document.fonts && document.fonts.ready.then(fit);
+    addEventListener('resize', fit);
     els.forEach(el => {
       let w = 0, busy = false, seen = false;
       new IntersectionObserver(([e]) => { seen = e.isIntersecting; }).observe(el);
@@ -2296,7 +2318,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
           let html = '';
           for (let i = 0; i < len; i++) {
             if (i < done) html += esc(to[i] || '');
-            else html += '<span class="s">' + esc(POOL[(Math.random() * POOL.length) | 0]) + '</span>';
+            else if (i < to.length || i < done + 2) html += '<span class="s">' + esc(POOL[(Math.random() * POOL.length) | 0]) + '</span>';
           }
           el.innerHTML = html;
           if (k < 1) requestAnimationFrame(frame);
