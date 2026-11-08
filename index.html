@@ -1301,7 +1301,10 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     }
   })();
 
-  /* ---------- Contact: sakura trees made of glitching Japanese text (one canvas, drawn only while visible) ---------- */
+  /* ---------- Contact: sakura trees made of Japanese text ----------
+     Performance: each tree is drawn ONCE into a cached bitmap. Per frame we only blit that bitmap
+     and draw the few moving parts (weeping strands, petals, glitches, blossoms under the cursor).
+     Nothing runs while the section is off screen or the tab is hidden. */
   (function sakura() {
     const sec = document.querySelector('.contact');
     const cv = document.querySelector('[data-sakura]');
@@ -1309,178 +1312,317 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     const ctx = cv.getContext('2d');
     const still = document.documentElement.classList.contains('rm') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const FONT = '"Noto Sans JP","Yu Gothic","YuGothic","Hiragino Sans","Meiryo",sans-serif';
-
     const TRUNK = '木幹枝根樹林森'.split('');
-    const BLOOM = ['桜', '花', '春', '夢', '咲', '散', '舞', '永', '遠', '光', '風', '月', '雪', '心', '愛', '空', 'さ', 'く', 'ら', 'は', 'な', 'ゆ', 'め', '儚', '恋', '星'];
-    const PETAL = 'ひらりはなびら桜花'.split('');
-    const GLITCH = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン░▒▓█#%&*<>/\\=+01'.split('');
-    const PAL = [[168, 85, 247], [217, 70, 239], [236, 72, 153], [239, 68, 68], [168, 85, 247]];
-    const pal = (t) => { t = (t % 1 + 1) % 1 * 4; const i = t | 0, f = t - i, a = PAL[i], b = PAL[i + 1];
-      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; };
-    const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+    const BLOOM = ['桜', '花', '春', '咲', '舞', '夢', '永', '遠', '光', '月', '心', '愛', '恋', '儚', '散', 'さ', 'く', 'ら', 'は', 'な'];
+    const PETAL = ['ひ', 'ら', 'り', '花', '桜', '・'];
+    const GLITCH = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモラリルレロワン░▒▓#%&*<>/=+01'.split('');
+    const PINKS = ['#ffe8f1', '#ffd6e7', '#ffc1da', '#fda9cb', '#f98fba', '#f472b6', '#ec5a9a', '#db3f7f']; // light (top) -> deep (under)
+    const BARK = ['#2b1b18', '#3a241f', '#4a2f27', '#5b3a30', '#6a4537'];
+    const ACC = [[168, 85, 247], [217, 70, 239], [236, 72, 153], [239, 68, 68], [168, 85, 247]];
+    const acc = (t) => { t = (t % 1 + 1) % 1 * 4; const i = t | 0, f = t - i, a = ACC[i], b = ACC[i + 1];
+      return `rgb(${a[0] + (b[0] - a[0]) * f | 0},${a[1] + (b[1] - a[1]) * f | 0},${a[2] + (b[2] - a[2]) * f | 0})`; };
+    const pickR = (arr) => arr[(Math.random() * arr.length) | 0];
 
-    let W = 0, H = 0, dpr = 1, glyphs = [], petals = [], visible = false, raf = 0, t0 = performance.now();
-    let mx = -1e4, my = -1e4, hovering = false, lastSpawn = 0;
-
-    // Small seeded RNG so the trees keep their shape between resizes.
-    let seed = 7;
+    let seed = 11;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+    const pick = (arr) => arr[(rnd() * arr.length) | 0];
 
-    function grow(x, y, ang, len, depth, size, out) {
-      const step = size * 0.82;
-      const n = Math.max(1, Math.round(len / step));
-      const curve = (rnd() - 0.5) * 0.25;
-      for (let i = 0; i < n; i++) {
-        ang += curve / n;
-        x += Math.cos(ang) * step; y += Math.sin(ang) * step;
-        out.push({ kind: 0, bx: x, by: y, size, ch: pick(TRUNK), hue: rnd() * 0.3 });
-        // thicker trunk near the root: extra glyph columns either side
-        for (let c = 1; c <= Math.max(0, depth - 4); c++) {
-          const nx = -Math.sin(ang) * size * 0.6 * c, ny = Math.cos(ang) * size * 0.6 * c;
-          out.push({ kind: 0, bx: x + nx, by: y + ny, size, ch: pick(TRUNK), hue: rnd() * 0.3 });
-          out.push({ kind: 0, bx: x - nx, by: y - ny, size, ch: pick(TRUNK), hue: rnd() * 0.3 });
-        }
+    const base = document.createElement('canvas'), bctx = base.getContext('2d');
+    let W = 0, H = 0, dpr = 1, blooms = [], grid = new Map(), strands = [], petals = [], glitches = [], lit = new Map();
+    let petalSprites = [], visible = false, raf = 0, t0 = performance.now();
+    let mx = -1e4, my = -1e4, hovering = false, lastSpawn = 0;
+    const CELL = 48;
+    const key = (cx, cy) => cx * 65536 + cy;
+
+    /* ---- tree geometry ---- */
+    function branch(x, y, ang, len, w, depth, segs, tips) {
+      const bend = (rnd() - 0.5) * 0.35;
+      const mxp = x + Math.cos(ang + bend) * len * 0.5, myp = y + Math.sin(ang + bend) * len * 0.5;
+      const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
+      segs.push({ x1: x, y1: y, x2: mxp, y2: myp, w }, { x1: mxp, y1: myp, x2, y2, w: w * 0.85 });
+      if (depth === 0) { tips.push({ x: x2, y: y2 }); return; }
+      const n = depth >= 3 ? 2 + (rnd() < 0.5 ? 1 : 0) : 2;
+      const droop = depth <= 1 ? (Math.cos(ang) > 0 ? 0.35 : -0.35) : 0; // outer twigs bend down (weeping)
+      for (let k = 0; k < n; k++) {
+        const a = ang + (k - (n - 1) / 2) * (0.5 + rnd() * 0.35) + droop + (rnd() - 0.5) * 0.25;
+        branch(x2, y2, a, len * (0.68 + rnd() * 0.12), w * 0.6, depth - 1, segs, tips);
       }
-      if (depth <= 0 || len < size * 2.2) {
-        // blossom cluster at the tip
-        const count = 9 + ((rnd() * 9) | 0), r = size * (2.2 + rnd() * 1.6);
-        for (let k = 0; k < count; k++) {
+    }
+
+    function buildTree(rx, gy, tw, th, out) {
+      const segs = [], tips = [];
+      const trunkW = Math.max(14, tw * 0.07), trunkH = th * 0.3;
+      // gnarled trunk: two curved pieces, then 2–3 big limbs fanning out like an umbrella
+      const lean = (rnd() - 0.5) * 0.15;
+      const tx = rx + Math.cos(-Math.PI / 2 + lean) * trunkH, ty = gy + Math.sin(-Math.PI / 2 + lean) * trunkH;
+      segs.push({ x1: rx, y1: gy, x2: (rx + tx) / 2 + (rnd() - 0.5) * trunkW, y2: (gy + ty) / 2, w: trunkW * 1.25 });
+      segs.push({ x1: (rx + tx) / 2, y1: (gy + ty) / 2, x2: tx, y2: ty, w: trunkW });
+      const limbs = 3 + (rnd() < 0.5 ? 1 : 0);
+      for (let k = 0; k < limbs; k++) {
+        const f = limbs === 1 ? 0.5 : k / (limbs - 1);
+        const a = -Math.PI + 0.35 + f * (Math.PI - 0.7) + (rnd() - 0.5) * 0.2; // from up-left to up-right
+        branch(tx, ty, a, th * 0.2 * (0.85 + rnd() * 0.3), trunkW * 0.62, 4, segs, tips);
+      }
+      // canopy envelope from the tips
+      let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+      tips.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+      const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, rxE = (maxX - minX) / 2 + 30, ryE = (maxY - minY) / 2 + 26;
+      const fs = Math.max(10, Math.min(16, tw / 40));
+      const shade = (y) => { const t = Math.min(1, Math.max(0, (y - (cy - ryE)) / (2 * ryE))); return Math.min(PINKS.length - 1, Math.max(0, Math.round(t * (PINKS.length - 1) + (rnd() - 0.5) * 2.2))); };
+      const tree = { segs, blooms: [], ground: [], strandAnchors: [] };
+      // clusters on every tip
+      tips.forEach(p => {
+        const c = 14 + ((rnd() * 10) | 0), r = fs * 2.6;
+        for (let i = 0; i < c; i++) {
           const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r;
-          out.push({ kind: 1, bx: x + Math.cos(a) * d, by: y + Math.sin(a) * d * 0.8, size: Math.max(11, size * (0.9 + rnd() * 0.7)), ch: pick(BLOOM), hue: rnd() });
+          const x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.8;
+          tree.blooms.push({ x, y, s: fs * (0.7 + rnd() * 0.55), ch: pick(BLOOM), c: shade(y) });
         }
-        return;
+      });
+      // dense dome fill (top-heavy, like a full sakura crown)
+      const fill = Math.min(2600, Math.round((rxE * ryE) / (fs * fs) * 2.6)); // drawn once, so density is free per frame
+      for (let i = 0; i < fill; i++) {
+        const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd());
+        let x = cx + Math.cos(a) * d * rxE, y = cy + Math.sin(a) * d * ryE * 0.9;
+        if (y > cy + ryE * 0.35 && rnd() < 0.6) continue; // thinner underside so branches show
+        tree.blooms.push({ x, y, s: fs * (0.65 + rnd() * 0.6), ch: pick(BLOOM), c: shade(y) });
       }
-      const kids = 2 + (rnd() < 0.35 ? 1 : 0);
-      for (let k = 0; k < kids; k++) {
-        const spread = (0.22 + rnd() * 0.3) * (k === 0 ? -1 : k === 1 ? 1 : (rnd() - 0.5));
-        grow(x, y, ang + spread, len * (0.68 + rnd() * 0.12), depth - 1, Math.max(10, size * 0.8), out);
+      // weeping strands hang from the lower edge of the crown
+      const sc = Math.round(rxE / 8);
+      for (let i = 0; i < sc; i++) {
+        const x = cx + (rnd() * 2 - 1) * rxE * 0.95;
+        const edge = cy + ryE * Math.sqrt(Math.max(0, 1 - ((x - cx) / rxE) ** 2)) * 0.55;
+        tree.strandAnchors.push({ x, y: edge - fs * 0.5, len: fs * (4 + rnd() * 7), fs: fs * 0.62, ph: rnd() * 6.28 });
       }
+      // fallen petals carpet around the roots
+      const span = rxE * 1.25;
+      for (let i = 0; i < Math.round(span / 2.2); i++) {
+        const x = rx + (rnd() * 2 - 1) * span * (0.4 + rnd() * 0.6);
+        tree.ground.push({ x, y: gy - rnd() * fs * 1.1, s: fs * (0.45 + rnd() * 0.4), ch: pick(PETAL), c: 2 + ((rnd() * 5) | 0), a: 0.35 + rnd() * 0.5 });
+      }
+      out.push(tree);
+    }
+
+    /* ---- one-time render into the cached bitmap ---- */
+    function renderBase(trees) {
+      base.width = cv.width; base.height = cv.height;
+      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
+      trees.forEach(tree => {
+        // bark: glyphs packed along each segment, as many columns as the limb is thick
+        tree.segs.forEach(sg => {
+          const len = Math.hypot(sg.x2 - sg.x1, sg.y2 - sg.y1), ang = Math.atan2(sg.y2 - sg.y1, sg.x2 - sg.x1);
+          const gs = Math.max(7, Math.min(15, sg.w * 0.55));
+          bctx.font = `600 ${gs | 0}px ${FONT}`;
+          const steps = Math.max(1, Math.round(len / (gs * 0.7)));
+          const cols = Math.max(1, Math.round(sg.w / (gs * 0.75)));
+          const nx = -Math.sin(ang), ny = Math.cos(ang);
+          for (let i = 0; i <= steps; i++) {
+            const px = sg.x1 + (sg.x2 - sg.x1) * i / steps, py = sg.y1 + (sg.y2 - sg.y1) * i / steps;
+            for (let c = 0; c < cols; c++) {
+              const o = (c - (cols - 1) / 2) * gs * 0.75;
+              bctx.fillStyle = pick(BARK);
+              bctx.globalAlpha = 0.75 + rnd() * 0.25;
+              bctx.fillText(pick(TRUNK), px + nx * o, py + ny * o);
+            }
+          }
+        });
+        bctx.globalAlpha = 1;
+        // ground petals
+        tree.ground.forEach(g => { bctx.font = `600 ${g.s | 0}px ${FONT}`; bctx.globalAlpha = g.a; bctx.fillStyle = PINKS[g.c]; bctx.fillText(g.ch, g.x, g.y); });
+        // blossoms: deep shades first, light on top
+        tree.blooms.sort((a, b) => b.c - a.c);
+        let f = 0;
+        tree.blooms.forEach(b => {
+          const s = b.s | 0; if (s !== f) { f = s; bctx.font = `700 ${s}px ${FONT}`; }
+          bctx.globalAlpha = 0.92; bctx.fillStyle = PINKS[b.c]; bctx.fillText(b.ch, b.x, b.y);
+        });
+        bctx.globalAlpha = 1;
+      });
+    }
+
+    function strandSprite(st) {
+      const c = document.createElement('canvas');
+      const w = Math.ceil(st.fs * 2), h = Math.ceil(st.len + st.fs * 2);
+      c.width = w * dpr; c.height = h * dpr;
+      const g = c.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = `700 ${st.fs | 0}px ${FONT}`;
+      const n = Math.max(3, Math.round(st.len / (st.fs * 0.85)));
+      for (let i = 0; i < n; i++) {
+        const t = i / n;
+        g.globalAlpha = 0.95 - t * 0.55;
+        g.fillStyle = PINKS[Math.min(PINKS.length - 1, 2 + ((t * 5) | 0))];
+        g.fillText(i % 3 === 2 ? '・' : pick(BLOOM), w / 2 + Math.sin(i * 0.9) * st.fs * 0.15, st.fs + i * st.fs * 0.85);
+      }
+      return { img: c, w, h };
+    }
+
+    function makePetalSprites() {
+      petalSprites = [];
+      [12, 16].forEach(sz => PETAL.forEach(ch => [1, 3, 5].forEach(ci => {
+        const c = document.createElement('canvas'); const d = Math.ceil(sz * 1.4);
+        c.width = d * dpr; c.height = d * dpr;
+        const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `700 ${sz}px ${FONT}`; g.fillStyle = PINKS[ci];
+        g.fillText(ch, d / 2, d / 2);
+        petalSprites.push({ img: c, d });
+      })));
     }
 
     function layout() {
       const r = sec.getBoundingClientRect();
       W = r.width; H = r.height;
       if (!W || !H) return;
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5); // decorative layer: cap resolution to save fill-rate
       cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-
-      // Find the empty space around the copy and the card.
       const copy = sec.querySelector('.contact .h2'), card = sec.querySelector('.contact-card');
-      const cr = copy ? copy.getBoundingClientRect() : null, kr = card ? card.getBoundingClientRect() : null;
-      const roots = [];
-      const small = W < 700;
-      if (kr && cr && !small) {
+      const cr = copy && copy.getBoundingClientRect(), kr = card && card.getBoundingClientRect();
+      const gy = H - 6, trees = [];
+      seed = 11;
+      if (cr && kr && W >= 900) {
         const gapL = cr.right - r.left, gapR = kr.left - r.left;
-        roots.push({ x: Math.max(gapL + 30, (gapL + gapR) / 2), h: H * 0.72, size: 22, ang: -Math.PI / 2 - 0.03 });
+        const x = Math.max(gapL + 20, (gapL + gapR) / 2);
+        buildTree(x, gy, Math.min(620, Math.max(360, (gapR - gapL) * 2)), H * 0.8, trees);
         const right = W - (kr.right - r.left);
-        if (right > 240) roots.push({ x: W - right / 2, h: H * 0.5, size: 18, ang: -Math.PI / 2 + 0.1 });
+        if (right > 240) buildTree(W - right / 2, gy, right * 1.5, H * 0.62, trees);
         const left = cr.left - r.left;
-        if (left > 260) roots.push({ x: left / 2, h: H * 0.45, size: 17, ang: -Math.PI / 2 + 0.08 });
+        if (left > 260) buildTree(left / 2, gy, left * 1.5, H * 0.55, trees);
       } else {
-        roots.push({ x: W * 0.82, h: H * 0.35, size: 15, ang: -Math.PI / 2 - 0.15 });
+        buildTree(W * 0.78, gy, W * 0.75, H * 0.42, trees);
       }
-      seed = 7;
-      glyphs = [];
-      roots.forEach(rt => grow(rt.x, H + 4, rt.ang, rt.h * 0.36, small ? 5 : 6, rt.size, glyphs));
-      const now = performance.now();
-      glyphs.forEach(g => { g.ox = 0; g.oy = 0; g.glitch = 0; g.next = now + 800 + Math.random() * 4000; g.heat = 0; });
-      glyphs.sort((a, b) => a.size - b.size); // fewer font switches while drawing
-      petals = [];
-      if (!raf) draw(performance.now());
+      renderBase(trees);
+      // keep the heading and intro readable: fade the trees behind the copy
+      const cc = sec.querySelector('.contact-copy');
+      if (cc) {
+        const q = cc.getBoundingClientRect();
+        bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        bctx.globalCompositeOperation = 'destination-out';
+        bctx.fillStyle = 'rgba(0,0,0,.08)'; // stacked rects = soft, feathered fade (~55% in the middle)
+        for (let i = 0; i < 10; i++) {
+          const pad = 70 - i * 8;
+          bctx.fillRect(q.left - r.left - pad, q.top - r.top - pad, q.width + pad * 2, q.height + pad * 2);
+        }
+        bctx.globalCompositeOperation = 'source-over';
+      }
+      blooms = []; grid = new Map(); strands = [];
+      trees.forEach(tr => {
+        tr.blooms.forEach(b => {
+          blooms.push(b);
+          const k = key(Math.floor(b.x / CELL), Math.floor(b.y / CELL));
+          (grid.get(k) || grid.set(k, []).get(k)).push(b);
+        });
+        tr.strandAnchors.forEach(st => strands.push(Object.assign(st, strandSprite(st))));
+      });
+      makePetalSprites();
+      petals = []; glitches = []; lit.clear();
+      draw(performance.now());
     }
 
+    /* ---- per-frame ---- */
     function spawnPetal(x, y, burst) {
-      if (petals.length > 90) return;
-      petals.push({ x, y, vx: (Math.random() - 0.5) * (burst ? 2.4 : 0.6), vy: 0.3 + Math.random() * (burst ? 1.4 : 0.6),
-        sway: Math.random() * Math.PI * 2, life: 1, ch: pick(PETAL), size: 11 + Math.random() * 7, hue: Math.random() });
+      if (petals.length > 70 || !petalSprites.length) return;
+      petals.push({ x, y, vx: (Math.random() - 0.5) * (burst ? 2.2 : 0.5), vy: 0.35 + Math.random() * (burst ? 1.2 : 0.5),
+        rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.06, sw: Math.random() * 6.28, life: 1, sp: pickR(petalSprites) });
     }
-
-    function kick() {
-      if (visible && !document.hidden && !still && !raf) raf = requestAnimationFrame(frame);
-    }
-    function frame(now) { raf = 0; update(now); draw(now); kick(); }
 
     function update(now) {
-      const R = 150;
-      // ambient glitch bursts: a run of neighbouring glyphs scrambles for a few frames
-      if (Math.random() < 0.06 && glyphs.length) {
-        const i = (Math.random() * glyphs.length) | 0;
-        for (let k = Math.max(0, i - 4); k < Math.min(glyphs.length, i + 5); k++) glyphs[k].glitch = 4 + ((Math.random() * 10) | 0);
+      // ambient glitch bursts on a few neighbouring blossoms
+      if (blooms.length && Math.random() < 0.07 && glitches.length < 24) {
+        const b = pickR(blooms), cell = grid.get(key(Math.floor(b.x / CELL), Math.floor(b.y / CELL))) || [b];
+        for (let i = 0; i < Math.min(5, cell.length); i++) glitches.push({ b: pickR(cell), f: 3 + ((Math.random() * 9) | 0) });
       }
-      for (const g of glyphs) {
-        if (now > g.next) { g.ch = pick(g.kind ? BLOOM : TRUNK); g.next = now + 1200 + Math.random() * 4500; }
-        let tx = 0, ty = 0, h = 0;
-        if (hovering) {
-          const dx = g.bx - mx, dy = g.by - my, d = Math.hypot(dx, dy);
-          if (d < R) {
-            h = 1 - d / R;
-            const push = h * h * (g.kind ? 34 : 8);
-            tx = dx / (d || 1) * push; ty = dy / (d || 1) * push;
-            if (Math.random() < h * 0.12) g.glitch = 3 + ((Math.random() * 6) | 0);
+      for (let i = glitches.length - 1; i >= 0; i--) if (--glitches[i].f <= 0) glitches.splice(i, 1);
+
+      // hover: blossoms near the cursor lift, brighten and scatter a little
+      const R = 130, seen = new Set();
+      if (hovering) {
+        const c0x = Math.floor((mx - R) / CELL), c1x = Math.floor((mx + R) / CELL), c0y = Math.floor((my - R) / CELL), c1y = Math.floor((my + R) / CELL);
+        for (let gx = c0x; gx <= c1x; gx++) for (let gy = c0y; gy <= c1y; gy++) {
+          const cell = grid.get(key(gx, gy)); if (!cell) continue;
+          for (const b of cell) {
+            const d = Math.hypot(b.x - mx, b.y - my);
+            if (d < R) { seen.add(b); if (!lit.has(b)) lit.set(b, 0); }
           }
         }
-        g.ox += (tx - g.ox) * 0.12; g.oy += (ty - g.oy) * 0.12;
-        g.heat += (h - g.heat) * (h > g.heat ? 0.25 : 0.05);
-        if (g.glitch > 0) g.glitch--;
+        if (now - lastSpawn > 60 && seen.size) { lastSpawn = now; const arr = [...seen]; spawnPetal(pickR(arr).x, pickR(arr).y, true); if (Math.random() < 0.3) glitches.push({ b: pickR(arr), f: 4 }); }
       }
-      // petals: drift down from the canopy, more when the mouse is in the blossoms
-      if (Math.random() < 0.18 && glyphs.length) { const g = glyphs[(Math.random() * glyphs.length) | 0]; if (g.kind) spawnPetal(g.bx, g.by, false); }
-      if (hovering && now - lastSpawn > 70) {
-        lastSpawn = now;
-        const near = glyphs.filter(g => g.kind && Math.abs(g.bx - mx) < 120 && Math.abs(g.by - my) < 120);
-        if (near.length) { const g = pick(near); spawnPetal(g.bx, g.by, true); }
-      }
+      lit.forEach((h, b) => {
+        const target = seen.has(b) ? Math.pow(1 - Math.hypot(b.x - mx, b.y - my) / R, 1.4) : 0;
+        h += (target - h) * (target > h ? 0.25 : 0.06);
+        if (h < 0.01 && !seen.has(b)) lit.delete(b); else lit.set(b, h);
+      });
+
+      // falling petals
+      if (blooms.length && Math.random() < 0.22) { const b = pickR(blooms); spawnPetal(b.x, b.y, false); }
       for (let i = petals.length - 1; i >= 0; i--) {
         const p = petals[i];
-        p.sway += 0.04; p.x += p.vx + Math.sin(p.sway) * 0.6; p.y += p.vy; p.vx *= 0.99;
-        p.life -= 0.0035;
-        if (p.life <= 0 || p.y > H + 20) petals.splice(i, 1);
+        p.sw += 0.035; p.x += p.vx + Math.sin(p.sw) * 0.55; p.y += p.vy; p.vx *= 0.99; p.rot += p.vr;
+        if (p.y > H - 8) { p.vy = 0; p.vx *= 0.9; p.life -= 0.02; } else p.life -= 0.0025;
+        if (p.life <= 0) petals.splice(i, 1);
       }
     }
 
     function draw(now) {
       if (!W) return;
       const t = still ? 0 : (now - t0) / 1000;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(base, 0, 0);
+      // weeping strands sway (sprites, no text shaping per frame)
+      for (const st of strands) {
+        let a = Math.sin(t * 0.9 + st.ph) * 0.07;
+        if (hovering) { const dx = st.x - mx, dy = st.y + st.h / 2 - my; if (Math.abs(dx) < 120 && Math.abs(dy) < st.h) a += (dx > 0 ? 1 : -1) * 0.18 * (1 - Math.abs(dx) / 120); }
+        const c = Math.cos(a), s = Math.sin(a);
+        ctx.setTransform(c * dpr, s * dpr, -s * dpr, c * dpr, st.x * dpr, st.y * dpr);
+        ctx.drawImage(st.img, -st.w / 2, 0, st.w, st.h);
+      }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, W, H);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      let font = 0;
-      for (const g of glyphs) {
-        const s = Math.round(g.size);
-        if (s !== font) { font = s; ctx.font = `${g.kind ? 600 : 500} ${s}px ${FONT}`; }
-        const col = pal(t / 8 + g.hue * (g.kind ? 0.35 : 0.15) + g.bx / W * 0.4);
-        const x = g.bx + g.ox, y = g.by + g.oy;
-        const glitching = g.glitch > 0;
-        const ch = glitching ? pick(GLITCH) : g.ch;
-        let a, r = col[0], gg = col[1], b = col[2];
-        if (g.kind) a = 0.55 + g.heat * 0.45;
-        else { a = 0.28 + g.heat * 0.3; r = r * 0.55 + 70; gg = gg * 0.4 + 40; b = b * 0.55 + 60; } // trunk: dim, plum
-        if (g.heat > 0.01) { const l = g.heat * 0.45; r += (255 - r) * l; gg += (255 - gg) * l; b += (255 - b) * l; }
-        if (glitching) { // chromatic split
-          const j = (Math.random() - 0.5) * 6;
-          ctx.fillStyle = `rgba(239,68,68,${a * 0.7})`; ctx.fillText(ch, x + j - 2, y);
-          ctx.fillStyle = `rgba(168,85,247,${a * 0.7})`; ctx.fillText(ch, x + j + 2, y);
-        }
-        ctx.fillStyle = `rgba(${r | 0},${gg | 0},${b | 0},${a})`;
-        ctx.fillText(ch, x, y);
+      // glitches: drop the glyph out, flash a scrambled one with a chromatic split in the site accent colours
+      for (const g of glitches) {
+        const b = g.b, s = b.s;
+        ctx.fillStyle = '#0c0c0d'; ctx.fillRect(b.x - s * 0.55, b.y - s * 0.55, s * 1.1, s * 1.1);
+        ctx.font = `700 ${s | 0}px ${FONT}`;
+        const ch = pickR(GLITCH), j = (Math.random() - 0.5) * 5;
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = acc(t / 6); ctx.fillText(ch, b.x + j - 2, b.y);
+        ctx.fillStyle = acc(t / 6 + 0.5); ctx.fillText(ch, b.x + j + 2, b.y);
+        ctx.globalAlpha = 1; ctx.fillStyle = PINKS[0]; ctx.fillText(ch, b.x + j, b.y);
       }
+      // hovered blossoms: lifted, larger, glowing
+      if (lit.size) {
+        ctx.shadowColor = 'rgba(244,114,182,.85)';
+        lit.forEach((h, b) => {
+          const dx = b.x - mx, dy = b.y - my, d = Math.hypot(dx, dy) || 1;
+          const push = h * h * 16, x = b.x + dx / d * push, y = b.y + dy / d * push - h * 6;
+          ctx.shadowBlur = h * 12;
+          ctx.font = `700 ${(b.s * (1 + h * 0.6)) | 0}px ${FONT}`;
+          ctx.fillStyle = h > 0.55 ? PINKS[0] : PINKS[Math.max(0, b.c - 3)];
+          ctx.fillText(b.ch, x, y);
+        });
+        ctx.shadowBlur = 0;
+      }
+      // falling petals (pre-rendered sprites)
       for (const p of petals) {
-        const col = pal(t / 8 + p.hue);
-        ctx.font = `600 ${p.size | 0}px ${FONT}`;
-        ctx.fillStyle = `rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},${Math.max(0, p.life) * 0.85})`;
-        ctx.fillText(p.ch, p.x, p.y);
+        const c = Math.cos(p.rot), s = Math.sin(p.rot);
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.life)) * 0.9;
+        ctx.setTransform(c * dpr, s * dpr, -s * dpr, c * dpr, p.x * dpr, p.y * dpr);
+        ctx.drawImage(p.sp.img, -p.sp.d / 2, -p.sp.d / 2, p.sp.d, p.sp.d);
       }
+      ctx.globalAlpha = 1;
     }
 
-    sec.addEventListener('pointermove', (e) => {
-      const r = cv.getBoundingClientRect();
-      mx = e.clientX - r.left; my = e.clientY - r.top; hovering = true;
-    }, { passive: true });
+    function kick() { if (visible && !document.hidden && !still && !raf) raf = requestAnimationFrame(frame); }
+    function frame(now) { raf = 0; if (!visible || document.hidden) return; update(now); draw(now); kick(); }
+
+    sec.addEventListener('pointermove', (e) => { const r = cv.getBoundingClientRect(); mx = e.clientX - r.left; my = e.clientY - r.top; hovering = true; }, { passive: true });
     sec.addEventListener('pointerleave', () => { hovering = false; mx = my = -1e4; });
-    new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }, { rootMargin: '100px' }).observe(sec);
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }, { rootMargin: '80px' }).observe(sec);
     document.addEventListener('visibilitychange', kick);
-    let rt; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(sec);
-    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(layout);
+    let rt, lastW = 0;
+    new ResizeObserver(() => { const w = sec.clientWidth; if (w === lastW) return; lastW = w; clearTimeout(rt); rt = setTimeout(layout, 150); }).observe(sec);
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => { lastW = sec.clientWidth; layout(); });
   })();
 
   /* ---------- Work accordion ---------- */
