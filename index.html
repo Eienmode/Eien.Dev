@@ -6,23 +6,6 @@
 <title>eien.dev — Jan Saquilayan, Software Engineer</title>
 <meta name="description" content="Jan Saquilayan: software engineer, reverse engineer and Unity game developer. Owner of UNIA LLC.">
 <meta name="theme-color" content="#0c0c0d">
-<meta name="author" content="Jan Saquilayan">
-<link rel="canonical" href="https://eien.dev/">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/assets/portrait.jpg">
-<link rel="manifest" href="/site.webmanifest">
-<!-- Social share previews (Discord, LinkedIn, X, iMessage…) -->
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="eien.dev">
-<meta property="og:url" content="https://eien.dev/">
-<meta property="og:title" content="Jan Saquilayan — Software Engineer">
-<meta property="og:description" content="Software engineer, reverse engineer and Unity game developer. Owner of UNIA LLC.">
-<meta property="og:image" content="https://eien.dev/assets/portrait.jpg">
-<meta property="og:image:alt" content="Portrait of Jan Saquilayan">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Jan Saquilayan — Software Engineer">
-<meta name="twitter:description" content="Software engineer, reverse engineer and Unity game developer. Owner of UNIA LLC.">
-<meta name="twitter:image" content="https://eien.dev/assets/portrait.jpg">
 <!--
   Art direction: "Ember on ink". A dark, quiet page with one warm accent.
   The hero runs a Three.js shader that renders a slow noise field through an
@@ -258,8 +241,8 @@ section{position:relative}
 .about-grid.no-photo>div{grid-column:2}
 .portrait{margin:0;position:sticky;top:6rem}
 .portrait .frame{aspect-ratio:4/5;overflow:hidden;border-radius:4px;background:var(--ink-2)}
-.portrait img{width:100%;height:100%;object-fit:cover;object-position:50% 30%;filter:grayscale(1) contrast(1.05);transition:filter 600ms ease}
-@media (hover:hover) and (pointer:fine){.portrait:hover img{filter:grayscale(0)}}
+.portrait img,.avatar img{filter:none!important}
+.portrait img{width:100%;height:100%;object-fit:cover;object-position:50% 30%}
 .portrait figcaption{margin-top:.8rem;color:var(--mute);display:flex;justify-content:space-between}
 .about-aside{color:var(--mute)}
 .about-aside dl{margin:0;display:grid;gap:1.25rem}
@@ -443,8 +426,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .cc-id{display:flex;align-items:center;gap:1.1rem}
 .avatar{margin:0;position:relative;flex:none;width:clamp(68px,7vw,88px);aspect-ratio:1;border-radius:50%;padding:2px;
   background:conic-gradient(from 210deg,var(--ember),var(--ember-2),var(--ember))}
-.avatar img{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid var(--ink-2);filter:grayscale(1) contrast(1.05);transition:filter 500ms ease}
-@media (hover:hover) and (pointer:fine){.contact-card:hover .avatar img{filter:none}}
+.avatar img{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid var(--ink-2)}
 .avatar .online{position:absolute;right:3%;bottom:3%;width:14px;height:14px;border-radius:50%;background:var(--ember);border:3px solid var(--ink-2)}
 .cc-handle{margin:.45rem 0 0;color:var(--mute);text-transform:none}
 .cc-status{margin:1.6rem 0 0;color:var(--bone);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
