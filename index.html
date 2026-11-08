@@ -22,7 +22,7 @@
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
 <script>
   // Runs before paint: enables motion-only styles. Removed again if GSAP fails to load.
   document.documentElement.classList.add('js');
@@ -482,11 +482,14 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .readme-body{padding:clamp(1.4rem,3vw,2.4rem)}
 .readme-prompt{color:var(--mute);margin:0 0 1rem;text-transform:none}
 .readme-prompt span{color:var(--ember);margin-right:.4rem}
-.readme h3{margin:0;font-weight:600;font-size:clamp(1.8rem,3.4vw,2.8rem);letter-spacing:-.04em;line-height:1}
-.readme h3 .alias{white-space:nowrap;color:var(--mute);font-weight:500}
-.readme h3 .alias b{color:var(--ember);font-weight:500}
-.readme-roles{margin:.9rem 0 0;font-size:1.05rem;line-height:1.5;color:var(--bone)}
-.readme-roles b{color:var(--ember);font-weight:400;margin:0 .15rem}
+.readme h3,.readme-roles{font-family:"Inter Tight",var(--display);font-feature-settings:"ss01","cv11"}
+.readme h3{margin:0;font-weight:600;font-size:clamp(1.8rem,3.4vw,2.8rem);letter-spacing:-.022em;line-height:1.05}
+.readme h3 .alias{white-space:nowrap;color:var(--mute);font-weight:400}
+.readme-roles{margin:.9rem 0 0;font-size:1.05rem;font-weight:400;letter-spacing:-.003em;line-height:1.5;color:var(--bone)}
+/* round separator dots (the "·" stays in the markup for screen readers / copy-paste) */
+.readme h3 .alias b,.readme-roles b{display:inline-block;width:.2em;height:.2em;border-radius:50%;background:var(--ember);
+  font-size:inherit;color:transparent;overflow:hidden;vertical-align:middle;margin:0 .06em;transform:translateY(-.05em)}
+.readme-roles b{width:.28em;height:.28em;margin:0 .22em}
 .readme-co{margin:.8rem 0 0;color:var(--mute)}
 .readme-co span{color:var(--bone)}
 .readme-stats{display:grid;grid-template-columns:repeat(3,1fr);margin:2rem 0;border-block:1px solid var(--line)}
