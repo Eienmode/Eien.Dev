@@ -526,7 +526,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 @keyframes repo-in{from{opacity:0;transform:translateY(calc(var(--dir,1) * 26px))}to{opacity:1;transform:none}}
 .repo--private{cursor:default}
 /* live code strip: bottom-right corner, same row as the meta line (always empty space) */
-.repo-code{position:absolute;right:1.4rem;bottom:1.3rem;font-size:.68rem;letter-spacing:.06em;text-transform:none;white-space:pre;
+.repo-code{position:absolute;right:1.4rem;bottom:1.3rem;contain:strict;width:17ch;height:1.4em;line-height:1.4em;text-align:right;overflow:hidden;font-size:.68rem;letter-spacing:.06em;text-transform:none;white-space:pre;
   color:var(--mute);opacity:.38;pointer-events:none;transition:color 300ms ease,opacity 300ms ease;font-variant-numeric:tabular-nums}
 .repo:hover .repo-code{color:var(--ember);opacity:.85}
 @media (max-width:480px){.repo-code{display:none}}
@@ -1452,18 +1452,32 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       g.globalAlpha = a; g.drawImage(s.c, x - s.d / 2, y - s.d / 2, s.d, s.d);
     };
     // scene glyphs are queued and painted into the cache a few ms per frame (no long main-thread block)
-    let ops = [], opI = 0, building = 0, built = false;
+    let ops = [], opI = 0, built = false, job = null;
     const stamp = (g, ch, color, size, x, y, a, weight, font) => { ops.push(ch, color, size, x, y, a, weight, font); };
-    function pump() {
-      building = 0;
-      const end = performance.now() + 7;
-      while (opI < ops.length && performance.now() < end) {
+    // The whole build (geometry, overlap filter, painting) is a generator run in small slices during
+    // browser idle time, so it never competes with scrolling for a frame.
+    function runJob(gen) {
+      const st = { alive: true };
+      const ric = window.requestIdleCallback ? (f) => requestIdleCallback(f, { timeout: 150 }) : (f) => setTimeout(f, 16);
+      const step = (dl) => {
+        if (!st.alive) return;
+        const budget = dl && !dl.didTimeout ? Math.min(8, Math.max(1.5, dl.timeRemaining() - 1)) : 4;
+        const end = performance.now() + budget;
+        let r;
+        do { r = gen.next(); } while (!r.done && performance.now() < end);
+        if (!r.done) ric(step);
+      };
+      ric(step);
+      return st;
+    }
+    function* paintOps() {
+      while (opI < ops.length) {
         stampNow(bctx, ops[opI], ops[opI + 1], ops[opI + 2], ops[opI + 3], ops[opI + 4], ops[opI + 5], ops[opI + 6], ops[opI + 7]);
         opI += 8;
+        if ((opI & 255) === 0) { if (still && !raf) draw(performance.now()); yield; }
       }
-      if (opI < ops.length) building = requestAnimationFrame(pump);
-      else { bctx.globalAlpha = 1; fadeCopy(); ops = []; if (!raf) draw(performance.now()); }
-      if (still && !raf) draw(performance.now());
+      bctx.globalAlpha = 1; fadeCopy(); ops = [];
+      if (!raf) draw(performance.now());
     }
 
     /* ---- tree geometry (original design: bark trunk, fanning limbs, dense pink dome crown) ---- */
@@ -1482,7 +1496,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }
     }
 
-    function buildTree(rx, gy, tw, th, out) {
+    function* buildTree(rx, gy, tw, th, out) {
       const segs = [], tips = [];
       const trunkW = Math.max(28, tw * 0.115), trunkH = th * 0.32;
       // trunk centre-line: gentle S-curve and lean; width flares at the root and tapers toward the fork
@@ -1524,8 +1538,10 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
           tree.blooms.push({ x, y, s: fs * (0.7 + rnd() * 0.55), ch: pick(BLOOM), c: shade(y) });
         }
       });
+      yield;
       const fill = Math.min(3200, Math.round((rxE * ryE) / (fs * fs) * 2.6));
       for (let i = 0; i < fill; i++) {
+        if ((i & 511) === 511) yield;
         const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd());
         const x = cx + Math.cos(a) * d * rxE, y = cy + Math.sin(a) * d * ryE * 0.9;
         if (y > cy + ryE * 0.35 && rnd() < 0.6) continue; // thinner underside so branches show
@@ -1564,7 +1580,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }
     }
 
-    function renderScene(trees) {
+    function* renderScene(trees) {
       base.width = cv.width; base.height = cv.height;
       bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       blooms = []; grid = new Map(); hgrid = new Map(); lit = new Map(); barkGlyphs = [];
@@ -1573,8 +1589,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         const x = rnd() * W, y = H - 4 - Math.pow(rnd(), 2) * 20;
         stamp(bctx, pick(['・', 'ひ', 'ら', 'り', '花', '桜']), rnd() < 0.4 ? '#ffffff' : PINKS[2 + ((rnd() * 5) | 0)], 7 + rnd() * 5, x, y, 0.35 + rnd() * 0.5, 600);
       }
-      trees.forEach(tr => {
+      for (const tr of trees) {
         tr.segs.forEach(barkSeg);
+        yield;
         tr.blooms.sort((a, b) => b.c - a.c); // deep shades first, light on top
         tr.blooms.forEach(b => { b.col = PINKS[b.c]; stamp(bctx, b.ch, b.col, b.s, b.x, b.y, 0.92, 700); });
         tr.blooms.forEach(b => {
@@ -1583,18 +1600,25 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
           (grid.get(k) || grid.set(k, []).get(k)).push(b);
           if (rnd() < 0.22) (hgrid.get(k) || hgrid.set(k, []).get(k)).push(b); // ~1 in 5 blossoms ripple in the breeze
         });
-      });
+        yield;
+      }
       bctx.globalAlpha = 1;
+      // copy rect measured now (cheap), overlap filter run in slices
       const cc = sec.querySelector('.contact-copy'), sr = sec.getBoundingClientRect();
       const q = cc ? cc.getBoundingClientRect() : null;
-      barkGlyphs = barkGlyphs.filter(g => {
-        if (q && g.x > q.left - sr.left - 90 && g.x < q.right - sr.left + 90 && g.y > q.top - sr.top - 90 && g.y < q.bottom - sr.top + 90) return false; // keep the fade behind the copy intact
-        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      const all = barkGlyphs, kept = [];
+      for (let n = 0; n < all.length; n++) {
+        if ((n & 255) === 255) yield;
+        const g = all[n];
+        if (q && g.x > q.left - sr.left - 90 && g.x < q.right - sr.left + 90 && g.y > q.top - sr.top - 90 && g.y < q.bottom - sr.top + 90) continue; // keep the fade behind the copy intact
+        let hit = false;
+        for (let dx = -1; dx <= 1 && !hit; dx++) for (let dy = -1; dy <= 1 && !hit; dy++) {
           const cell = grid.get(key(Math.floor(g.x / CELL) + dx, Math.floor(g.y / CELL) + dy));
-          if (cell) for (const b of cell) if (Math.abs(b.x - g.x) < (b.s + g.s) * 0.6 && Math.abs(b.y - g.y) < (b.s + g.s) * 0.6) return false;
+          if (cell) for (const b of cell) if (Math.abs(b.x - g.x) < (b.s + g.s) * 0.6 && Math.abs(b.y - g.y) < (b.s + g.s) * 0.6) { hit = true; break; }
         }
-        return true;
-      });
+        if (!hit) kept.push(g);
+      }
+      barkGlyphs = kept;
     }
 
     function fadeCopy() {
@@ -1605,9 +1629,15 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       bctx.save();
       bctx.globalCompositeOperation = 'destination-out';
       if ('filter' in bctx) {
-        bctx.filter = 'blur(48px)';
-        bctx.fillStyle = 'rgba(0,0,0,.68)';
-        bctx.fillRect(q.left - r.left - 30, q.top - r.top - 30, q.width + 60, q.height + 60);
+        // same soft 48px-blurred rect, but blurred on a 1/8-size canvas and scaled up (far cheaper than a full-res blur)
+        const S = 8, pad = 48 * 3, x0 = q.left - r.left - 30 - pad, y0 = q.top - r.top - 30 - pad;
+        const mw = Math.ceil((q.width + 60 + pad * 2) / S), mh = Math.ceil((q.height + 60 + pad * 2) / S);
+        const m = document.createElement('canvas'); m.width = mw; m.height = mh;
+        const mg = m.getContext('2d');
+        mg.filter = `blur(${48 / S}px)`; mg.fillStyle = 'rgba(0,0,0,.68)';
+        mg.fillRect(pad / S, pad / S, (q.width + 60) / S, (q.height + 60) / S);
+        bctx.imageSmoothingEnabled = true; bctx.imageSmoothingQuality = 'high';
+        bctx.drawImage(m, x0, y0, mw * S, mh * S);
       } else {
         const cx = q.left - r.left + q.width / 2, cy = q.top - r.top + q.height / 2, rx = q.width / 2 + 140, ry = q.height / 2 + 120;
         bctx.translate(cx, cy); bctx.scale(1, ry / rx);
@@ -1644,23 +1674,25 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       const kr = card && card.getBoundingClientRect(), cr = copy && copy.getBoundingClientRect();
       const gy = H - 8, trees = [];
       seed = 3;
-      if (W >= 900 && kr && cr) {
-        const gapL = cr.right - r.left, gapR = kr.left - r.left;
-        buildTree(W * 0.03, gy, W * 0.42, H * 0.92, trees);    // left, partly off screen
-        buildTree(W * 0.975, gy, W * 0.42, H * 0.94, trees);   // right, partly off screen
-        buildTree(Math.max(gapL + 40, (gapL + gapR) / 2), gy, Math.min(860, Math.max(500, (gapR - gapL) * 2.8)), H * 0.97, trees); // centre
-      } else {
-        buildTree(W * 0.15, gy, W * 0.75, H * 0.5, trees);
-        buildTree(W * 0.78, gy, W * 0.95, H * 0.6, trees);
-      }
-      ops = []; opI = 0; if (building) cancelAnimationFrame(building);
-      renderScene(trees);
-      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const wide = W >= 900 && kr && cr, gapL = wide && cr.right - r.left, gapR = wide && kr.left - r.left;
+      if (job) job.alive = false;
+      ops = []; opI = 0; barkGlyphs = []; blooms = []; grid = new Map(); hgrid = new Map(); lit = new Map();
       built = true;
-      pump();
       makePetalSprites();
       petals = []; glitches = [];
-      draw(performance.now());
+      job = runJob((function* () {
+        if (wide) {
+          yield* buildTree(W * 0.03, gy, W * 0.42, H * 0.92, trees);    // left, partly off screen
+          yield* buildTree(W * 0.975, gy, W * 0.42, H * 0.94, trees);   // right, partly off screen
+          yield* buildTree(Math.max(gapL + 40, (gapL + gapR) / 2), gy, Math.min(860, Math.max(500, (gapR - gapL) * 2.8)), H * 0.97, trees); // centre
+        } else {
+          yield* buildTree(W * 0.15, gy, W * 0.75, H * 0.5, trees);
+          yield* buildTree(W * 0.78, gy, W * 0.95, H * 0.6, trees);
+        }
+        yield* renderScene(trees);
+        bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        yield* paintOps();
+      })());
     }
 
     /* ---- per frame ---- */
@@ -1783,7 +1815,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }, { rootMargin: '80px' }).observe(sec);
     new IntersectionObserver(([e]) => {
       if (e.isIntersecting && !built) (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => { if (!built) { lastW = sec.clientWidth; layout(); } });
-    }, { rootMargin: '900px' }).observe(sec);
+    }, { rootMargin: '1800px' }).observe(sec);
     document.addEventListener('visibilitychange', kick);
     let rt, lastW = 0;
     new ResizeObserver(() => { const w = sec.clientWidth; if (!built || w === lastW) return; lastW = w; clearTimeout(rt); rt = setTimeout(layout, 200); }).observe(sec);
