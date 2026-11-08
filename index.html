@@ -27,6 +27,17 @@
   // Runs before paint: enables motion-only styles. Removed again if GSAP fails to load.
   document.documentElement.classList.add('js');
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('rm');
+  // Boot intro: once per tab session, never under reduced motion. Failsafe: it can never block the page.
+  (function () {
+    var seen = false;
+    try { seen = sessionStorage.getItem('eien-boot') === '1'; } catch (e) {}
+    if (seen || document.documentElement.classList.contains('rm')) return;
+    document.documentElement.classList.add('booting');
+    setTimeout(function () {
+      var r = document.documentElement;
+      if (r.classList.contains('booting')) { r.classList.remove('booting'); var b = document.querySelector('[data-boot]'); b && b.remove(); window.__bootDone = true; dispatchEvent(new Event('boot:done')); }
+    }, 7000);
+  })();
 </script>
 <style>
 @property --ember{syntax:'<color>';inherits:true;initial-value:#d946ef}
@@ -61,6 +72,36 @@ html{-webkit-text-size-adjust:100%;color-scheme:dark}
 /* No native page scrollbar (no gutter, no edge cut, and locking scroll never changes the width).
    A slim floating thumb (.sbar) is drawn over the page instead. */
 html{background:var(--ink);scrollbar-width:none}
+/* ---------- Boot intro ---------- */
+.boot{display:none}
+html.booting{overflow:hidden}
+html.booting .boot{display:block;position:fixed;inset:0;z-index:200;cursor:pointer;color:var(--bone)}
+.boot-half{position:absolute;left:0;right:0;height:50.5%;background:#0c0c0d;transition:transform 850ms cubic-bezier(0.77,0,0.175,1)}
+.boot-top{top:0}.boot-bot{bottom:0}
+.boot-rain{position:absolute;inset:0;width:100%;height:100%;opacity:.8;transition:opacity 300ms ease}
+.boot-core{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;text-align:center;padding:0 1.25rem;transition:opacity 300ms ease,transform 600ms cubic-bezier(0.23,1,0.32,1)}
+.boot-sys{margin:0 0 1.2rem;color:var(--ember);font-size:.74rem;text-transform:none;letter-spacing:.02em}
+.boot-mark{margin:0;font:600 clamp(2.6rem,9vw,7rem)/1 var(--display);letter-spacing:-.045em;white-space:nowrap;
+  text-shadow:0 0 30px color-mix(in srgb,var(--ember) 45%,transparent)}
+.boot-mark .bs,.boot-jp .bs{color:var(--ember);font-family:var(--mono);font-weight:400}
+.boot-mark.glitch{text-shadow:-3px 0 var(--ember),3px 0 #7dd3fc;transform:translateX(2px) skewX(-6deg)}
+.boot-jp{margin:.9rem 0 0;font-size:clamp(1rem,2.2vw,1.5rem);letter-spacing:.6em;padding-left:.6em;color:#a9a5a0;
+  font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic","Noto Sans JP",var(--display)}
+.boot-bar{width:min(320px,70vw);height:2px;margin:2rem 0 .7rem;background:#26262b;overflow:hidden;border-radius:2px}
+.boot-bar i{display:block;height:100%;background:var(--ember);transform-origin:left;transform:scaleX(0)}
+.boot-pct{margin:0;color:var(--mute);font-size:.72rem;text-transform:none;font-variant-numeric:tabular-nums}
+.boot-state{margin-left:.8rem;color:var(--bone)}
+.boot-log{position:absolute;left:var(--pad,1.25rem);bottom:1.4rem;font-size:.7rem;line-height:1.7;color:var(--mute);text-transform:none;text-align:left;transition:opacity 300ms ease}
+.boot-log b{color:var(--ember);font-weight:400;margin-right:.4rem}
+.boot-log i{font-style:normal;color:#5b5b63}.boot-log em{font-style:normal;color:var(--ember)}
+.boot-skip{position:absolute;right:var(--pad,1.25rem);bottom:1.4rem;font-size:.66rem;color:#55555c;text-transform:none}
+.boot .mono{text-transform:none} /* terminal output stays lowercase (beats the shared .mono rule) */
+.boot.is-out{pointer-events:none}
+.boot.is-out .boot-core{opacity:0;transform:scale(.97)}
+.boot.is-out .boot-rain,.boot.is-out .boot-log,.boot.is-out .boot-skip{opacity:0}
+.boot.is-out .boot-top{transform:translateY(-100%)}
+.boot.is-out .boot-bot{transform:translateY(100%)}
+@media (max-width:600px){.boot-log{font-size:.62rem;bottom:3.2rem}.boot-skip{left:var(--pad,1.25rem);right:auto;bottom:1.2rem}}
 html::-webkit-scrollbar{display:none}
 .sbar{position:fixed;top:0;right:0;width:14px;height:100%;z-index:80;pointer-events:none}
 .sbar i{position:absolute;top:0;right:3px;width:4px;border-radius:4px;pointer-events:auto;cursor:grab;touch-action:none;
@@ -743,6 +784,101 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 </style>
 </head>
 <body>
+<!-- ================= BOOT INTRO (first open per session) ================= -->
+<div class="boot" data-boot aria-hidden="true">
+  <div class="boot-half boot-top"></div><div class="boot-half boot-bot"></div>
+  <canvas class="boot-rain" data-boot-rain></canvas>
+  <div class="boot-core">
+    <p class="boot-sys mono">&gt; build --target eien.dev</p>
+    <p class="boot-mark" data-boot-mark>eien.dev</p>
+    <p class="boot-jp" data-boot-jp>永遠</p>
+    <div class="boot-bar"><i data-boot-bar></i></div>
+    <p class="boot-pct mono"><span data-boot-pct>000</span>%<span class="boot-state" data-boot-state>compiling</span></p>
+  </div>
+  <div class="boot-log mono" data-boot-log></div>
+  <span class="boot-skip mono">click / any key to skip</span>
+</div>
+<script>
+/* Boot intro: plain DOM text + one low-res canvas at ~24fps; exit is transform/opacity only. */
+(function () {
+  var root = document.documentElement, el = document.querySelector('[data-boot]');
+  if (!el) return;
+  if (!root.classList.contains('booting')) { el.remove(); window.__bootDone = true; return; }
+  var mark = el.querySelector('[data-boot-mark]'), jp = el.querySelector('[data-boot-jp]'), bar = el.querySelector('[data-boot-bar]'),
+      pct = el.querySelector('[data-boot-pct]'), state = el.querySelector('[data-boot-state]'), log = el.querySelector('[data-boot-log]'),
+      cv = el.querySelector('[data-boot-rain]'), g = cv.getContext('2d');
+  var JP = '永遠変化光影流転界序零壹虚空桜花夢心道アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン',
+      CODE = '0123456789ABCDEF{}[]<>/=#$%*+;:_|', POOL = JP + CODE;
+  var MARK = 'eien.dev', KANJI = '永遠';
+  var LINES = ['init runtime', 'mount ./index.html', 'load gsap@3 · lenis · three', 'compile shader: dither.frag', 'fetch github/contributions',
+               'build sections 01..06', 'grow sakura.canvas', 'link assets/logos/*', 'resolve 永遠 → eternity', 'build ok'];
+  var pick = function (s) { return s[(Math.random() * s.length) | 0]; };
+  var hex = function () { return (Math.random() * 0xffff | 0).toString(16).padStart(4, '0'); };
+  var esc = function (c) { return c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c; };
+  var accent = '', t0 = performance.now(), MIN = 2100, MAX = 3400, raf = 0, last = 0, li = 0, done = false, cols = [], cw = 16, W = 0, H = 0;
+
+  function size() {
+    W = innerWidth; H = innerHeight; cw = W < 600 ? 14 : 18;
+    cv.width = Math.ceil(W / 1); cv.height = Math.ceil(H / 1);       // 1x on purpose: cheap on every screen
+    cols = []; for (var i = 0; i < Math.ceil(W / cw); i++) cols.push(Math.random() * (H / cw) * 0.6 - 6); // start on screen, staggered
+    g.fillStyle = '#0c0c0d'; g.fillRect(0, 0, W, H);
+  }
+  size(); addEventListener('resize', size);
+
+  function scramble(target, k) {           // resolve left to right with JP/code noise
+    var n = Math.floor(k * (target.length + 1)), out = '';
+    for (var i = 0; i < target.length; i++) out += i < n ? esc(target[i]) : '<span class="bs">' + esc(pick(POOL)) + '</span>';
+    return out;
+  }
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (now - last < 41) return;           // ~24fps is plenty and keeps low-end devices cool
+    last = now;
+    var t = now - t0, ready = document.readyState !== 'loading';
+    var p = Math.min(1, t / MIN); if (!ready) p = Math.min(p, 0.9);
+    // rain of glyphs (faint), one per column per frame
+    g.fillStyle = 'rgba(12,12,13,0.18)'; g.fillRect(0, 0, W, H);
+    g.font = '500 ' + (cw - 4) + 'px "Geist Mono", ui-monospace, monospace';
+    if (!accent || Math.random() < 0.04) accent = getComputedStyle(root).getPropertyValue('--ember').trim() || '#d946ef'; // read rarely, not per frame
+    for (var i = 0; i < cols.length; i++) {
+      var y = cols[i] * cw, r = Math.random();
+      g.fillStyle = r < 0.06 ? '#ffffff' : r < 0.5 ? accent : '#3a3a40';
+      g.globalAlpha = r < 0.06 ? 0.8 : 0.45;
+      g.fillText(pick(POOL), i * cw, y);
+      cols[i] = y > H && Math.random() > 0.96 ? 0 : cols[i] + 1;
+    }
+    g.globalAlpha = 1;
+    // wordmark + kanji decode, then glitch now and then
+    mark.innerHTML = p < 0.85 ? scramble(MARK, Math.max(0, (p - 0.1) / 0.75)) : MARK;
+    jp.innerHTML = p < 0.95 ? scramble(KANJI, Math.max(0, (p - 0.45) / 0.5)) : KANJI;
+    if (Math.random() < 0.12) { mark.classList.add('glitch'); setTimeout(function () { mark.classList.remove('glitch'); }, 90); }
+    // progress + build log
+    bar.style.transform = 'scaleX(' + p.toFixed(3) + ')';
+    pct.textContent = String(Math.round(p * 100)).padStart(3, '0');
+    while (li < LINES.length && p >= li / (LINES.length - 1) * 0.98) {
+      var line = document.createElement('div');
+      line.innerHTML = '<b>0x' + hex() + '</b> ' + LINES[li] + (li === LINES.length - 1 ? ' <em>✓</em>' : ' <i>…ok</i>');
+      log.appendChild(line); if (log.children.length > 7) log.removeChild(log.firstChild);
+      li++;
+    }
+    if ((p >= 1 && t >= MIN) || t > MAX) finish();
+  }
+  function finish() {
+    if (done) return; done = true;
+    state.textContent = 'ready'; mark.textContent = MARK; jp.textContent = KANJI;
+    try { sessionStorage.setItem('eien-boot', '1'); } catch (e) {}
+    el.classList.add('is-out');                         // content fades, the two halves slide apart
+    window.__bootDone = true; dispatchEvent(new Event('boot:done'));
+    setTimeout(function () {
+      cancelAnimationFrame(raf); removeEventListener('resize', size);
+      root.classList.remove('booting'); el.remove();
+    }, 950);
+  }
+  var skip = function () { if (!done) finish(); };
+  el.addEventListener('pointerdown', skip); addEventListener('keydown', skip, { once: true });
+  raf = requestAnimationFrame(frame);
+})();
+</script>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="nav" id="nav">
@@ -2509,7 +2645,10 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   HS.prepare(heroName.querySelector('.split-words'));
   gsap.set(heroWords, { yPercent: 105 });
   heroName.style.visibility = 'visible';
-  const intro = gsap.timeline({ defaults: { ease: 'expo.out' } });
+  // if the boot intro is still on screen, hold the hero entrance until it opens
+  const waitBoot = root.classList.contains('booting') && !window.__bootDone;
+  const intro = gsap.timeline({ defaults: { ease: 'expo.out' }, paused: waitBoot });
+  if (waitBoot) addEventListener('boot:done', () => intro.play(0), { once: true });
   intro
     .to(heroWords, { yPercent: 0, duration: 1.15, stagger: 0.09 }, 0.1)
     .from('[data-hero-meta] > div', { opacity: 0, y: 12, duration: 0.8, stagger: 0.06 }, 0.35)
