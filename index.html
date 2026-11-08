@@ -1665,6 +1665,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     let ops = [], opI = 0, built = false, job = null;
     // assembly: the finished scene is revealed tile by tile (ground up), each tile flashing as a code block
     const CS = 36; let occ = new Map(), cells = [], ready = false, asmT = 0, asmDone = false;
+    let armed = still; // the assembly waits until Contact is properly on screen, not just peeking in
     const stamp = (g, ch, color, size, x, y, a, weight, font) => {
       ops.push(ch, color, size, x, y, a, weight, font);
       const cx = Math.floor(x / CS), cy = Math.floor(y / CS), k = cx * 4096 + cy;
@@ -1992,7 +1993,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 1;
       ctx.clearRect(0, 0, cv.width, cv.height);
-      if (!ready) return;                                   // still building out of sight: show nothing yet
+      if (!ready || !armed) return;                         // built out of sight; revealed only once you're really here
       if (!asmDone) {
         if (!asmT) asmT = now;
         const DUR = 1900, k = Math.min(1, (now - asmT) / DUR), ease = (v) => 1 - Math.pow(1 - v, 2.2);
@@ -2057,6 +2058,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     }, { passive: true });
     sec.addEventListener('pointerleave', () => { hovering = false; mx = my = -1e4; });
     new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }, { rootMargin: '80px' }).observe(sec);
+    // arm the assembly when the section's top has passed ~60% up the viewport (or it is mostly on screen)
+    const armIO = new IntersectionObserver(([e]) => { if (e.isIntersecting) { armed = true; armIO.disconnect(); kick(); } }, { rootMargin: '0px 0px -40% 0px' });
+    armIO.observe(sec);
     new IntersectionObserver(([e]) => {
       if (e.isIntersecting && !built) (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => { if (!built) { lastW = sec.clientWidth; layout(); } });
     }, { rootMargin: '1800px' }).observe(sec);
