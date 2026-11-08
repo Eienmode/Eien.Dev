@@ -328,7 +328,9 @@ section{position:relative}
 .legend{display:flex;gap:1.5rem;color:var(--mute);margin-top:1.5rem}
 
 /* ---------- Contact ---------- */
-.contact{padding:clamp(7rem,15vw,12rem) 0 4rem;border-top:1px solid var(--line);overflow:hidden}
+.contact{position:relative;padding:clamp(7rem,15vw,12rem) 0 4rem;border-top:1px solid var(--line);overflow:hidden}
+.sakura{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.contact>.wrap{position:relative;z-index:1}
 .contact .h2{max-width:13ch;font-size:clamp(2.8rem,8vw,8.5rem);line-height:.92}
 .mail{
   display:inline-flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:clamp(2.5rem,5vw,4rem);
@@ -1041,6 +1043,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 
 <!-- ================= CONTACT ================= -->
 <section class="contact" id="contact" aria-labelledby="contact-title">
+  <canvas class="sakura" data-sakura aria-hidden="true"></canvas>
   <div class="wrap contact-grid">
     <div class="contact-copy">
       <p class="sec-label mono" style="margin-bottom:2rem"><span>06</span>Contact</p>
@@ -1296,6 +1299,188 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }, { passive: true });
       cv.addEventListener('pointerleave', () => { hovering = false; hoverIdx = -1; mx = my = -1e4; tip.classList.remove('is-on'); kick(); });
     }
+  })();
+
+  /* ---------- Contact: sakura trees made of glitching Japanese text (one canvas, drawn only while visible) ---------- */
+  (function sakura() {
+    const sec = document.querySelector('.contact');
+    const cv = document.querySelector('[data-sakura]');
+    if (!sec || !cv) return;
+    const ctx = cv.getContext('2d');
+    const still = document.documentElement.classList.contains('rm') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const FONT = '"Noto Sans JP","Yu Gothic","YuGothic","Hiragino Sans","Meiryo",sans-serif';
+
+    const TRUNK = '木幹枝根樹林森'.split('');
+    const BLOOM = ['桜', '花', '春', '夢', '咲', '散', '舞', '永', '遠', '光', '風', '月', '雪', '心', '愛', '空', 'さ', 'く', 'ら', 'は', 'な', 'ゆ', 'め', '儚', '恋', '星'];
+    const PETAL = 'ひらりはなびら桜花'.split('');
+    const GLITCH = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン░▒▓█#%&*<>/\\=+01'.split('');
+    const PAL = [[168, 85, 247], [217, 70, 239], [236, 72, 153], [239, 68, 68], [168, 85, 247]];
+    const pal = (t) => { t = (t % 1 + 1) % 1 * 4; const i = t | 0, f = t - i, a = PAL[i], b = PAL[i + 1];
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; };
+    const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+
+    let W = 0, H = 0, dpr = 1, glyphs = [], petals = [], visible = false, raf = 0, t0 = performance.now();
+    let mx = -1e4, my = -1e4, hovering = false, lastSpawn = 0;
+
+    // Small seeded RNG so the trees keep their shape between resizes.
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+
+    function grow(x, y, ang, len, depth, size, out) {
+      const step = size * 0.82;
+      const n = Math.max(1, Math.round(len / step));
+      const curve = (rnd() - 0.5) * 0.25;
+      for (let i = 0; i < n; i++) {
+        ang += curve / n;
+        x += Math.cos(ang) * step; y += Math.sin(ang) * step;
+        out.push({ kind: 0, bx: x, by: y, size, ch: pick(TRUNK), hue: rnd() * 0.3 });
+        // thicker trunk near the root: extra glyph columns either side
+        for (let c = 1; c <= Math.max(0, depth - 4); c++) {
+          const nx = -Math.sin(ang) * size * 0.6 * c, ny = Math.cos(ang) * size * 0.6 * c;
+          out.push({ kind: 0, bx: x + nx, by: y + ny, size, ch: pick(TRUNK), hue: rnd() * 0.3 });
+          out.push({ kind: 0, bx: x - nx, by: y - ny, size, ch: pick(TRUNK), hue: rnd() * 0.3 });
+        }
+      }
+      if (depth <= 0 || len < size * 2.2) {
+        // blossom cluster at the tip
+        const count = 9 + ((rnd() * 9) | 0), r = size * (2.2 + rnd() * 1.6);
+        for (let k = 0; k < count; k++) {
+          const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r;
+          out.push({ kind: 1, bx: x + Math.cos(a) * d, by: y + Math.sin(a) * d * 0.8, size: Math.max(11, size * (0.9 + rnd() * 0.7)), ch: pick(BLOOM), hue: rnd() });
+        }
+        return;
+      }
+      const kids = 2 + (rnd() < 0.35 ? 1 : 0);
+      for (let k = 0; k < kids; k++) {
+        const spread = (0.22 + rnd() * 0.3) * (k === 0 ? -1 : k === 1 ? 1 : (rnd() - 0.5));
+        grow(x, y, ang + spread, len * (0.68 + rnd() * 0.12), depth - 1, Math.max(10, size * 0.8), out);
+      }
+    }
+
+    function layout() {
+      const r = sec.getBoundingClientRect();
+      W = r.width; H = r.height;
+      if (!W || !H) return;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+
+      // Find the empty space around the copy and the card.
+      const copy = sec.querySelector('.contact .h2'), card = sec.querySelector('.contact-card');
+      const cr = copy ? copy.getBoundingClientRect() : null, kr = card ? card.getBoundingClientRect() : null;
+      const roots = [];
+      const small = W < 700;
+      if (kr && cr && !small) {
+        const gapL = cr.right - r.left, gapR = kr.left - r.left;
+        roots.push({ x: Math.max(gapL + 30, (gapL + gapR) / 2), h: H * 0.72, size: 22, ang: -Math.PI / 2 - 0.03 });
+        const right = W - (kr.right - r.left);
+        if (right > 240) roots.push({ x: W - right / 2, h: H * 0.5, size: 18, ang: -Math.PI / 2 + 0.1 });
+        const left = cr.left - r.left;
+        if (left > 260) roots.push({ x: left / 2, h: H * 0.45, size: 17, ang: -Math.PI / 2 + 0.08 });
+      } else {
+        roots.push({ x: W * 0.82, h: H * 0.35, size: 15, ang: -Math.PI / 2 - 0.15 });
+      }
+      seed = 7;
+      glyphs = [];
+      roots.forEach(rt => grow(rt.x, H + 4, rt.ang, rt.h * 0.36, small ? 5 : 6, rt.size, glyphs));
+      const now = performance.now();
+      glyphs.forEach(g => { g.ox = 0; g.oy = 0; g.glitch = 0; g.next = now + 800 + Math.random() * 4000; g.heat = 0; });
+      glyphs.sort((a, b) => a.size - b.size); // fewer font switches while drawing
+      petals = [];
+      if (!raf) draw(performance.now());
+    }
+
+    function spawnPetal(x, y, burst) {
+      if (petals.length > 90) return;
+      petals.push({ x, y, vx: (Math.random() - 0.5) * (burst ? 2.4 : 0.6), vy: 0.3 + Math.random() * (burst ? 1.4 : 0.6),
+        sway: Math.random() * Math.PI * 2, life: 1, ch: pick(PETAL), size: 11 + Math.random() * 7, hue: Math.random() });
+    }
+
+    function kick() {
+      if (visible && !document.hidden && !still && !raf) raf = requestAnimationFrame(frame);
+    }
+    function frame(now) { raf = 0; update(now); draw(now); kick(); }
+
+    function update(now) {
+      const R = 150;
+      // ambient glitch bursts: a run of neighbouring glyphs scrambles for a few frames
+      if (Math.random() < 0.06 && glyphs.length) {
+        const i = (Math.random() * glyphs.length) | 0;
+        for (let k = Math.max(0, i - 4); k < Math.min(glyphs.length, i + 5); k++) glyphs[k].glitch = 4 + ((Math.random() * 10) | 0);
+      }
+      for (const g of glyphs) {
+        if (now > g.next) { g.ch = pick(g.kind ? BLOOM : TRUNK); g.next = now + 1200 + Math.random() * 4500; }
+        let tx = 0, ty = 0, h = 0;
+        if (hovering) {
+          const dx = g.bx - mx, dy = g.by - my, d = Math.hypot(dx, dy);
+          if (d < R) {
+            h = 1 - d / R;
+            const push = h * h * (g.kind ? 34 : 8);
+            tx = dx / (d || 1) * push; ty = dy / (d || 1) * push;
+            if (Math.random() < h * 0.12) g.glitch = 3 + ((Math.random() * 6) | 0);
+          }
+        }
+        g.ox += (tx - g.ox) * 0.12; g.oy += (ty - g.oy) * 0.12;
+        g.heat += (h - g.heat) * (h > g.heat ? 0.25 : 0.05);
+        if (g.glitch > 0) g.glitch--;
+      }
+      // petals: drift down from the canopy, more when the mouse is in the blossoms
+      if (Math.random() < 0.18 && glyphs.length) { const g = glyphs[(Math.random() * glyphs.length) | 0]; if (g.kind) spawnPetal(g.bx, g.by, false); }
+      if (hovering && now - lastSpawn > 70) {
+        lastSpawn = now;
+        const near = glyphs.filter(g => g.kind && Math.abs(g.bx - mx) < 120 && Math.abs(g.by - my) < 120);
+        if (near.length) { const g = pick(near); spawnPetal(g.bx, g.by, true); }
+      }
+      for (let i = petals.length - 1; i >= 0; i--) {
+        const p = petals[i];
+        p.sway += 0.04; p.x += p.vx + Math.sin(p.sway) * 0.6; p.y += p.vy; p.vx *= 0.99;
+        p.life -= 0.0035;
+        if (p.life <= 0 || p.y > H + 20) petals.splice(i, 1);
+      }
+    }
+
+    function draw(now) {
+      if (!W) return;
+      const t = still ? 0 : (now - t0) / 1000;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let font = 0;
+      for (const g of glyphs) {
+        const s = Math.round(g.size);
+        if (s !== font) { font = s; ctx.font = `${g.kind ? 600 : 500} ${s}px ${FONT}`; }
+        const col = pal(t / 8 + g.hue * (g.kind ? 0.35 : 0.15) + g.bx / W * 0.4);
+        const x = g.bx + g.ox, y = g.by + g.oy;
+        const glitching = g.glitch > 0;
+        const ch = glitching ? pick(GLITCH) : g.ch;
+        let a, r = col[0], gg = col[1], b = col[2];
+        if (g.kind) a = 0.55 + g.heat * 0.45;
+        else { a = 0.28 + g.heat * 0.3; r = r * 0.55 + 70; gg = gg * 0.4 + 40; b = b * 0.55 + 60; } // trunk: dim, plum
+        if (g.heat > 0.01) { const l = g.heat * 0.45; r += (255 - r) * l; gg += (255 - gg) * l; b += (255 - b) * l; }
+        if (glitching) { // chromatic split
+          const j = (Math.random() - 0.5) * 6;
+          ctx.fillStyle = `rgba(239,68,68,${a * 0.7})`; ctx.fillText(ch, x + j - 2, y);
+          ctx.fillStyle = `rgba(168,85,247,${a * 0.7})`; ctx.fillText(ch, x + j + 2, y);
+        }
+        ctx.fillStyle = `rgba(${r | 0},${gg | 0},${b | 0},${a})`;
+        ctx.fillText(ch, x, y);
+      }
+      for (const p of petals) {
+        const col = pal(t / 8 + p.hue);
+        ctx.font = `600 ${p.size | 0}px ${FONT}`;
+        ctx.fillStyle = `rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},${Math.max(0, p.life) * 0.85})`;
+        ctx.fillText(p.ch, p.x, p.y);
+      }
+    }
+
+    sec.addEventListener('pointermove', (e) => {
+      const r = cv.getBoundingClientRect();
+      mx = e.clientX - r.left; my = e.clientY - r.top; hovering = true;
+    }, { passive: true });
+    sec.addEventListener('pointerleave', () => { hovering = false; mx = my = -1e4; });
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }, { rootMargin: '100px' }).observe(sec);
+    document.addEventListener('visibilitychange', kick);
+    let rt; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(sec);
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(layout);
   })();
 
   /* ---------- Work accordion ---------- */
