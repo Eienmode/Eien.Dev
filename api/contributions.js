@@ -1,7 +1,7 @@
 // Vercel serverless function: GET /api/contributions
 // Reads the public contribution calendar straight from GitHub (the same data
 // shown on github.com/Eienmode) and returns it as JSON for the About card.
-// Vercel's edge cache keeps it for 15 minutes, so GitHub is hit rarely.
+// Vercel's edge cache keeps it for 5 minutes, so GitHub is hit rarely.
 
 const USER = 'Eienmode';
 
@@ -38,7 +38,7 @@ module.exports = async (req, res) => {
     const t = html.replace(/\s+/g, ' ').match(/([\d,]+) contributions? in the last year/);
     const lastYear = t ? parseInt(t[1].replace(/,/g, ''), 10) : days.reduce((s, d) => s + d.count, 0);
 
-    res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.status(200).send(JSON.stringify({ total: { lastYear }, contributions: days }));
   } catch (err) {
