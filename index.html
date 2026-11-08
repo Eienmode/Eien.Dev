@@ -1157,7 +1157,6 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     let visible = false, raf = 0, t0 = performance.now();
     let mx = -1e4, my = -1e4, hovering = false, hoverIdx = -1;
     const heat = new Float32Array(400); // eased hover glow per cell
-    const wave = new Float32Array(400); // idle wave lift per cell
 
     const getJSON = (u) => fetch(u).then(r => (r.ok ? r.json() : Promise.reject(r.status)))
       .then(d => (d && d.contributions && d.contributions.length ? d : Promise.reject('empty')));
@@ -1217,23 +1216,29 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       ctx.translate(P, P);
       const step = cell + gap, R = 160, rad = cell * 0.22; // R = hover spotlight radius (px)
       const lit = [];
+      // Spotlight source: the mouse when hovering, otherwise an invisible cursor that wanders the grid.
+      const gw = cols * step - gap, gh = 7 * step - gap;
+      let sx = mx, sy = my, on = hovering;
+      if (!hovering && !still) {
+        sx = (0.5 + 0.48 * Math.sin(t * 0.19 + 1.4 * Math.sin(t * 0.06))) * gw;
+        sy = (0.5 + 0.55 * Math.sin(t * 0.47 + 0.8)) * gh;
+        on = true;
+      }
       for (let i = 0; i < cells.length; i++) {
         const c = cells[i];
         const cx = c.x * step + cell / 2, cy = c.y * step + cell / 2;
         // hover heat eases in/out so the spotlight feels soft
         let target = 0;
-        if (hovering) { const d = Math.hypot(mx - cx, my - cy); if (d < R) target = Math.pow(1 - d / R, 1.6); }
-        heat[i] += (target - heat[i]) * 0.25;
+        if (on) { const d = Math.hypot(sx - cx, sy - cy); if (d < R) target = Math.pow(1 - d / R, 1.6); }
+        heat[i] += (target - heat[i]) * (target > heat[i] ? 0.25 : 0.045); // rise fast, fade slowly (lingers)
         if (heat[i] < 0.002) heat[i] = 0;
-        // idle wave: a soft diagonal band that keeps rolling across the grid
-        wave[i] = still ? 0 : Math.pow(Math.max(0, Math.sin(t * 1.4 - c.x * 0.22 - c.y * 0.35)), 4) * 0.5;
-        if (heat[i] > 0 || c.l > 0 || wave[i] > 0.02) { lit.push(i); continue; } // drawn after, on top
+        if (heat[i] > 0 || c.l > 0) { lit.push(i); continue; } // drawn after, on top
         const col = pal(t / 6 + c.x * 0.018 + c.y * 0.027), a = ALPHA[0];
         ctx.fillStyle = `rgb(${BG[0] + (col[0] - BG[0]) * a | 0},${BG[1] + (col[1] - BG[1]) * a | 0},${BG[2] + (col[2] - BG[2]) * a | 0})`;
         rrect(c.x * step, c.y * step, cell, rad);
       }
       for (const i of lit) {
-        const c = cells[i], hv = heat[i], h = Math.max(hv, wave[i]);
+        const c = cells[i], hv = heat[i], h = hv;
         const col = pal(t / 6 + c.x * 0.018 + c.y * 0.027);
         const pulse = c.l > 0 && !still ? 0.5 + 0.5 * Math.sin(t * c.sp + c.ph) : 0;
         const a = ALPHA[c.l];
@@ -1242,7 +1247,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         if (h > 0) { const m = Math.max(a, h); r = BG[0] + (col[0] - BG[0]) * m; g = BG[1] + (col[1] - BG[1]) * m; b = BG[2] + (col[2] - BG[2]) * m; }
         r += (255 - r) * lift * 0.5; g += (255 - g) * lift * 0.5; b += (255 - b) * lift * 0.5;
         const s = cell * (1 + h * 0.55), off = (s - cell) / 2;
-        const glow = c.l > 0 ? 4 + pulse * 10 + hv * 10 : hv * 14; // wave alone gets no glow (cheap)
+        const glow = c.l > 0 ? 4 + pulse * 10 + hv * 10 : hv * 14; 
         if (glow > 0.5) ctx.shadowColor = `rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},${Math.min(0.9, 0.35 + pulse * 0.4 + hv * 0.5)})`;
         ctx.shadowBlur = glow > 0.5 ? glow : 0;
         ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
