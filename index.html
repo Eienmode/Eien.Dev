@@ -73,7 +73,7 @@ html{-webkit-text-size-adjust:100%;color-scheme:dark}
    A slim floating thumb (.sbar) is drawn over the page instead. */
 html{background:var(--ink);scrollbar-width:none}
 /* ---------- Boot intro: the page is "built" live by cursor agents ---------- */
-html.booting :is(.nav .brand,.nav-links li,.nav-meta,[data-hero-meta]>div,.hero-rule,.hero-lede,.cta-row .btn,.scroll-cue,.hero-visual){opacity:0}
+html.booting :is(.nav .brand,.nav-links li,.nav-meta,[data-hero-meta]>div,.hero-rule,.hero-eye,.hero-lede,.cta-row .btn,.scroll-cue,.hero-visual){opacity:0}
 html.booting .b-in{opacity:1!important;transition:opacity 260ms ease}
 html.booting .hero-visual.b-in{transition:opacity 900ms ease}
 .bld{position:fixed;inset:0;width:100%;height:100%;z-index:150;pointer-events:none}
@@ -175,6 +175,7 @@ button{font:inherit;color:inherit}
 }
 .hero-visual canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:0;transition:opacity 1.2s ease}
 .hero-visual canvas.is-live{opacity:1}
+.hero-eye{position:absolute;left:0;top:0;z-index:-1;pointer-events:none} /* code eye + rain in the empty top-left triangle */
 .hero-visual::after{ /* keeps the name legible over the field */
   content:"";position:absolute;inset:0;
   background:linear-gradient(to bottom,rgba(12,12,13,.55),rgba(12,12,13,0) 30%,rgba(12,12,13,0) 70%,rgba(12,12,13,.7));
@@ -851,6 +852,196 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 </section>
 
 <script>
+/* Hero "code eye": an original anime-style eye drawn in code glyphs that blinks and glances around,
+   over a code/kana rain, clipped to the empty triangle between the meta row and the name.
+   Analytic per-cell shapes (no pixel reads), offscreen layers, ~30fps, paused off-screen. */
+(function () {
+  var hero = document.querySelector('.hero'), meta = document.querySelector('[data-hero-meta]'), name = document.querySelector('.hero-name');
+  if (!hero || !meta || !name) return;
+  var cv = document.createElement('canvas'); cv.className = 'hero-eye'; cv.setAttribute('aria-hidden', 'true');
+  var vis = hero.querySelector('.hero-visual'); vis ? vis.after(cv) : hero.prepend(cv);
+  var g = cv.getContext('2d'), rainC = document.createElement('canvas'), rg = rainC.getContext('2d'),
+      eyeC = document.createElement('canvas'), eg = eyeC.getContext('2d');
+  var root = document.documentElement;
+  var still = root.classList.contains('rm') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var JP = '永遠変化光影流転界序零壹虚空桜花夢心目瞳アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモラリルレロワン',
+      CODE = '0123456789ABCDEF{}[]<>/=#$%*+;:_|', RAIN = JP + CODE;
+  var pick = function (s) { return s[(Math.random() * s.length) | 0]; };
+  var W = 0, H = 0, dpr = 1, on = false, tri = null, eye = null, cols = [], raf = 0, last = 0, seen = false;
+
+  // ---- colour helpers (follow the live accent)
+  var accent = [217, 70, 239];
+  function readAccent() {
+    var v = getComputedStyle(root).getPropertyValue('--ember').trim(), m;
+    if ((m = /^#([0-9a-f]{6})$/i.exec(v))) accent = [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4), 16)];
+    else if ((m = /rgba?\(([^)]+)\)/.exec(v))) accent = m[1].split(',').slice(0, 3).map(function (n) { return +n; });
+  }
+  function mix(a, b, t) { return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * t) + ',' + Math.round(a[1] + (b[1] - a[1]) * t) + ',' + Math.round(a[2] + (b[2] - a[2]) * t) + ')'; }
+  var BLACK = [8, 6, 10], WHITE = [255, 255, 255];
+
+  // ---- geometry: right triangle (top-left corner), hypotenuse from (R, top) to (0, bot)
+  function layout() {
+    var hr = hero.getBoundingClientRect(), mr = meta.getBoundingClientRect();
+    // top of the name's actual glyphs (its box has padding + tall line-height above the letters)
+    var first = name.querySelector('.line') || name, rg0 = document.createRange(); rg0.selectNodeContents(first);
+    var lr = rg0.getClientRects()[0] || name.getBoundingClientRect();
+    var glyphTop = lr.top + lr.height * 0.45; // cap-height top sits ~45% down the line box for this face (measured)
+    W = hr.width; H = hr.height; dpr = Math.min(1.5, window.devicePixelRatio || 1);
+    var top = mr.bottom - hr.top + 14, bot = glyphTop - hr.top - 4, R = W * 0.58, h = bot - top;
+    on = W >= 900 && h >= 170;
+    cv.style.display = on ? '' : 'none';
+    if (!on) return;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    rainC.width = cv.width; rainC.height = cv.height; rg.setTransform(dpr, 0, 0, dpr, 0, 0);
+    tri = { top: top, bot: bot, R: R, h: h };
+    // eye box: as big as fits inside the triangle
+    // biggest eye that fits in the widest part of the triangle (top-left), with a little air
+    var L0 = Math.max(20, R * 0.05), ew = Math.min(R * 0.55, h * 1.3), eh, cx, cy;
+    for (var k = 0; k < 40; k++) {
+      eh = ew * 0.7; cx = L0 + ew / 2; cy = top + 6 + eh / 2;
+      var xh = R * (1 - (cy + eh * 0.42 - top) / h);           // hypotenuse at the bottom of the eye opening
+      if (cx + ew * 0.5 < xh - 12) break;
+      ew *= 0.96;
+    }
+    var cell = Math.max(6, Math.round(ew / 80)), ncol = Math.round(ew / cell), nrow = Math.round(eh / cell);
+    eye = { x: cx - ncol * cell / 2, y: cy - nrow * cell / 2, cell: cell, cols: ncol, rows: nrow, chars: [], o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0 };
+    for (var i = 0; i < ncol * nrow; i++) eye.chars.push(Math.random());
+    eyeC.width = ncol * cell * dpr; eyeC.height = nrow * cell * dpr; eg.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cols = [];
+    for (var x = 8; x < R; x += 16) cols.push({ x: x, y: top + Math.random() * h, v: 0.45 + Math.random() * 0.6 });
+    readAccent(); renderEye(); paint();
+  }
+
+  // ---- eye shape (in cell units, eye box = cols x rows)
+  function bez(p0, p1, p2, t) { var u = 1 - t; return [u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0], u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1]]; }
+  function yAt(p0, p1, p2) { // sample a quadratic into a y(x) lookup
+    var pts = []; for (var i = 0; i <= 48; i++) pts.push(bez(p0, p1, p2, i / 48));
+    return function (x) {
+      if (x <= pts[0][0]) return pts[0][1]; if (x >= pts[48][0]) return pts[48][1];
+      for (var i = 1; i <= 48; i++) if (pts[i][0] >= x) { var a = pts[i - 1], b = pts[i], t = (x - a[0]) / (b[0] - a[0] || 1); return a[1] + (b[1] - a[1]) * t; }
+      return pts[48][1];
+    };
+  }
+  function segD(px, py, ax, ay, bx, by) { var dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))); return Math.hypot(px - ax - dx * t, py - ay - dy * t); }
+  var SETS = { lid: '#%&@$=#', lash: '/|\\', crease: '-~', lower: '-_~', sclera: '.:', ring: '#[]{}', iris: '01ABCDEF<>{}=', pupil: '@#%&', hl: '+*o' };
+  function renderEye() {
+    if (!eye) return;
+    var C = eye.cols, Rr = eye.rows, cell = eye.cell, o = eye.o;
+    var Pin = [0.04 * C, 0.66 * Rr], Pout = [0.97 * C, 0.38 * Rr];
+    var uy = -0.06 * Rr + (0.96 * Rr + 0.06 * Rr) * (1 - o);           // upper lid control point drops when blinking
+    var U = yAt(Pin, [0.46 * C, uy], Pout), L = yAt(Pin, [0.56 * C, 1.02 * Rr], Pout), K = yAt([0.30 * C, 0.16 * Rr], [0.55 * C, -0.12 * Rr], [0.93 * C, 0.24 * Rr]);
+    var ix = 0.5 * C + eye.gx, iy = 0.55 * Rr + eye.gy, rx = 0.19 * C, ry = 0.43 * Rr;
+    var lashes = [];
+    [0.55, 0.66, 0.76, 0.86, 0.95].forEach(function (t, n) { var p = bez(Pin, [0.46 * C, uy], Pout, t); lashes.push([p[0], p[1] - 1, p[0] + 2 + n * 0.8, p[1] - 4 - n * 0.6]); });
+    eg.clearRect(0, 0, C * cell, Rr * cell);
+    eg.font = '600 ' + Math.round(cell * 1.08) + 'px "Geist Mono", ui-monospace, monospace'; eg.textAlign = 'center'; eg.textBaseline = 'middle';
+    var bone = 'rgb(236,233,226)';
+    for (var r = 0; r < Rr; r++) for (var c = 0; c < C; c++) {
+      var x = c + 0.5, y = r + 0.5, kind = null, col = null, a = 1;
+      var u = U(x), l = L(x), inX = x > Pin[0] && x < Pout[0];
+      var lw = 1.1 + 2.6 * Math.max(0, (x - Pin[0]) / (Pout[0] - Pin[0])) ** 1.4;      // lid thickens toward the outer corner
+      if (inX && y <= u + 0.35 && y > u - lw) { kind = 'lid'; col = bone; }
+      else if (x >= Pout[0] - 0.5 && x < Pout[0] + 2.2 && Math.abs(y - (Pout[1] - (x - Pout[0]) * 0.55)) < 0.75) { kind = 'lid'; col = bone; } // outer flick
+      if (!kind) for (var q = 0; q < lashes.length; q++) if (segD(x, y, lashes[q][0], lashes[q][1], lashes[q][2], lashes[q][3]) < 0.5) { kind = 'lash'; col = bone; break; }
+      if (!kind && o > 0.5 && x > 0.32 * C && x < 0.9 * C && Math.abs(y - K(x)) < 0.42) { kind = 'crease'; col = 'rgb(110,108,118)'; }
+      if (!kind && inX && y > u && y < l) {
+        var dh1 = Math.hypot(x - (ix - 0.06 * C), (y - (iy - 0.17 * Rr)) * 1.0), dh2 = Math.hypot(x - (ix + 0.05 * C), y - (iy + 0.2 * Rr));
+        var d = ((x - ix) / rx) ** 2 + ((y - iy) / ry) ** 2, dp = ((x - ix) / (rx * 0.42)) ** 2 + ((y - iy - 0.04 * Rr) / (ry * 0.5)) ** 2;
+        if (dh1 < 0.06 * C || dh2 < 0.028 * C) { kind = 'hl'; col = '#ffffff'; }
+        else if (dp < 1) { kind = 'pupil'; col = mix(BLACK, accent, 0.28); }
+        else if (d < 1) {
+          if (d > 0.78) { kind = 'ring'; col = mix(BLACK, accent, 0.45); }
+          else { kind = 'iris'; var sh = Math.max(0, Math.min(1, (y - (iy - ry)) / (2 * ry))); col = sh < 0.5 ? mix(BLACK, accent, 0.55 + sh * 0.9) : mix(accent, WHITE, (sh - 0.5) * 0.7); }
+        } else { kind = 'sclera'; col = 'rgb(70,68,78)'; a = 0.7; }
+        if (y < u + 0.9 && kind !== 'hl') { col = mix(BLACK, [120, 116, 128], 0.6); kind = kind === 'sclera' ? 'sclera' : kind; } // lid shadow on the eye
+      }
+      if (!kind && inX && x > Pin[0] + 0.12 * C && x < Pout[0] - 0.08 * C && Math.abs(y - l) < 0.5) { kind = 'lower'; col = 'rgb(150,146,156)'; }
+      if (!kind) continue;
+      var set = SETS[kind], ch = set[Math.floor(eye.chars[r * C + c] * set.length) % set.length];
+      eg.globalAlpha = a; eg.fillStyle = col; eg.fillText(ch, x * cell, y * cell);
+    }
+    eg.globalAlpha = 1;
+  }
+
+  // ---- compose: rain + eye, clipped to the triangle, edges feathered
+  function paint() {
+    if (!on || !tri) return;
+    var t = tri;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.save();
+    g.beginPath(); g.moveTo(0, t.top); g.lineTo(t.R, t.top); g.lineTo(0, t.bot); g.closePath(); g.clip();
+    g.globalAlpha = 0.75; g.drawImage(rainC, 0, 0, W, H); g.globalAlpha = 1;
+    if (eye) {
+      var ew2 = eye.cols * eye.cell, eh2 = eye.rows * eye.cell, ecx = eye.x + ew2 / 2, ecy = eye.y + eh2 * 0.52;
+      g.save(); g.translate(ecx, ecy); g.scale(1, eh2 / ew2);
+      var hole = g.createRadialGradient(0, 0, ew2 * 0.2, 0, 0, ew2 * 0.58);
+      hole.addColorStop(0, 'rgba(0,0,0,.92)'); hole.addColorStop(1, 'rgba(0,0,0,0)');
+      g.globalCompositeOperation = 'destination-out'; g.fillStyle = hole; g.fillRect(-ew2, -ew2, ew2 * 2, ew2 * 2);
+      g.restore(); g.globalCompositeOperation = 'source-over';
+      g.drawImage(eyeC, eye.x, eye.y, ew2, eh2);
+    }
+    g.restore();
+    // feather: fade toward the hypotenuse and softly under the meta row
+    g.globalCompositeOperation = 'destination-in';
+    var len = Math.hypot(t.R, t.h), nx = t.h / len, ny = t.R / len, fx = (t.R * t.h * t.h) / (len * len), fy = t.top + (t.R * t.R * t.h) / (len * len);
+    var gr = g.createLinearGradient(fx - nx * 110, fy - ny * 110, fx, fy); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    var gt = g.createLinearGradient(0, t.top, 0, t.top + 26); gt.addColorStop(0, 'rgba(0,0,0,0)'); gt.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = gt; g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'source-over';
+  }
+
+  // ---- animation
+  var nextBlink = 0, blinkT = -1, doubleB = false, nextLook = 0, shuffleT = 0, accentT = 0;
+  function frame(now) {
+    raf = 0;
+    if (!seen || document.hidden || !on) return;
+    raf = requestAnimationFrame(frame);
+    if (now - last < 33) return;                       // ~30fps is plenty
+    last = now;
+    var dirty = false;
+    if (now - accentT > 1000) { accentT = now; readAccent(); dirty = true; }
+    // rain: fade the trail layer, draw new heads
+    rg.globalCompositeOperation = 'destination-out'; rg.fillStyle = 'rgba(0,0,0,0.13)'; rg.fillRect(0, 0, W, H);
+    rg.globalCompositeOperation = 'source-over';
+    rg.font = '500 13px "Geist Mono", ui-monospace, monospace';
+    var acc = 'rgb(' + accent.join(',') + ')';
+    for (var i = 0; i < cols.length; i++) {
+      var c = cols[i], yMax = tri.top + tri.h * (1 - c.x / tri.R);
+      var r = Math.random(); rg.fillStyle = r < 0.07 ? '#ffffff' : r < 0.6 ? acc : '#4a4a52';
+      rg.globalAlpha = r < 0.07 ? 0.9 : 0.6;
+      rg.fillText(pick(RAIN), c.x, c.y);
+      c.y += 16 * c.v;
+      if (c.y > yMax + 10) { c.y = tri.top - Math.random() * 40; c.v = 0.45 + Math.random() * 0.6; }
+    }
+    rg.globalAlpha = 1;
+    // blink: close 90ms, hold 50ms, open 150ms; sometimes a double blink
+    if (!nextBlink) nextBlink = now + 1500 + Math.random() * 2000;
+    if (blinkT < 0 && now >= nextBlink) { blinkT = now; doubleB = Math.random() < 0.25; }
+    if (blinkT >= 0) {
+      var e = now - blinkT, o = e < 90 ? 1 - e / 90 : e < 140 ? 0 : e < 290 ? (e - 140) / 150 : 1;
+      eye.o = o; dirty = true;
+      if (e >= 290) { if (doubleB) { blinkT = now + 60; doubleB = false; } else { blinkT = -1; nextBlink = now + 2600 + Math.random() * 3400; } }
+    }
+    // glances: the iris drifts to a new spot every few seconds
+    if (now > nextLook) { nextLook = now + 1800 + Math.random() * 2600; eye.tgx = (Math.random() - 0.5) * eye.cols * 0.12; eye.tgy = (Math.random() - 0.5) * eye.rows * 0.1; }
+    if (Math.abs(eye.tgx - eye.gx) > 0.02 || Math.abs(eye.tgy - eye.gy) > 0.02) { eye.gx += (eye.tgx - eye.gx) * 0.18; eye.gy += (eye.tgy - eye.gy) * 0.18; dirty = true; }
+    // the code that draws the eye keeps changing
+    if (now - shuffleT > 140) { shuffleT = now; for (var k = 0; k < eye.chars.length * 0.08; k++) eye.chars[(Math.random() * eye.chars.length) | 0] = Math.random(); dirty = true; }
+    if (dirty) renderEye();
+    paint();
+  }
+  function kick() { if (!raf && seen && !document.hidden && on && !still) raf = requestAnimationFrame(frame); }
+  new IntersectionObserver(function (es) { seen = es[0].isIntersecting; kick(); }).observe(hero);
+  document.addEventListener('visibilitychange', kick);
+  var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { layout(); kick(); }, 200); });
+  function start() { layout(); kick(); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(start); else start();
+  addEventListener('load', function () { layout(); kick(); }, { once: true });   // re-measure once everything has settled
+})();
+</script>
+<script>
 /* Boot intro: cursor "agents" fly in, draw wireframes and build the real nav + hero in place.
    One transparent canvas (<= 1.5x DPR) + class toggles on real elements. Skippable, once per session. */
 (function () {
@@ -864,7 +1055,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   // ---- targets, in build order: [selector, tag, kind]
   var PLAN = [
     ['.nav .brand', '<a> 永', 'text'], ['.nav-links li', '<li>', 'text'], ['.nav-meta', '<div> 時', 'text'],
-    ['.hero-visual', '<canvas> 光', 'fade'], ['[data-hero-meta]>div', '<dl>', 'text'],
+    ['.hero-visual', '<canvas> 光', 'fade'], ['.hero-eye', '<canvas> 目', 'fade'], ['[data-hero-meta]>div', '<dl>', 'text'],
     ['.hero-name', '<h1> 名', 'hero'], ['.hero-rule', '<hr> 線', 'fade'], ['.hero-lede', '<p> 文', 'text'], ['.cta-row .btn', '<a> →', 'text'], ['.scroll-cue', '<i> ↓', 'fade']
   ];
   var jobs = [];
