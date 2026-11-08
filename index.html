@@ -901,9 +901,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     tri = { top: top, bot: bot, R: R, h: h };
     // eye box: as big as fits inside the triangle
     // biggest eye that fits in the widest part of the triangle (top-left), with a little air
-    var L0 = Math.max(80, R * 0.15), ew = Math.min(R * 0.55, h * 1.3), eh, cx, cy;
+    var L0 = Math.max(80, R * 0.15), ew = Math.min(R * 0.62, h * 1.9), eh, cx, cy;
     for (var k = 0; k < 40; k++) {
-      eh = ew * 0.6; cx = L0 + ew / 2; cy = top + 6 + eh / 2;
+      eh = ew * 0.42; cx = L0 + ew / 2; cy = top + 14 + eh / 2;
       var xh = R * (1 - (cy + eh * 0.42 - top) / h);           // hypotenuse at the bottom of the eye opening
       if (cx + ew * 0.5 < xh - 12) break;
       ew *= 0.96;
@@ -938,14 +938,14 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     AMBER = accent; GOLD = [accent[0] + (255 - accent[0]) * 0.35, accent[1] + (255 - accent[1]) * 0.35, accent[2] + (255 - accent[2]) * 0.35];
     GOLD_HOT = [accent[0] + (255 - accent[0]) * 0.8, accent[1] + (255 - accent[1]) * 0.8, accent[2] + (255 - accent[2]) * 0.8]; EMBER = [accent[0] * 0.4, accent[1] * 0.4, accent[2] * 0.4];
     var C = eye.cols, Rr = eye.rows, cell = eye.cell, o = eye.o;
-    var Pin = [0.08 * C, 0.66 * Rr], Pout = [0.97 * C, 0.36 * Rr];                  // inner corner low, outer point high: a glare
-    var uy = 0.30 * Rr + (0.80 * Rr - 0.30 * Rr) * (1 - o);
-    var U = yAt(Pin, [0.5 * C, uy], Pout), L = yAt(Pin, [0.55 * C, 0.86 * Rr], Pout);
+    var Pin = [0.05 * C, 0.62 * Rr], Pout = [0.98 * C, 0.26 * Rr];                  // inner corner low, outer point high: a glare
+    var uy = -0.02 * Rr + (0.86 * Rr + 0.02 * Rr) * (1 - o);
+    var U = yAt(Pin, [0.5 * C, uy], Pout), L = yAt(Pin, [0.55 * C, 1.0 * Rr], Pout);
     var B = yAt([0.0 * C, 0.42 * Rr], [0.45 * C, 0.02 * Rr], [1.0 * C, 0.10 * Rr]);   // top of the brow armour
     // the curves only depend on x: evaluate them once per column instead of once per cell
     var cU = new Float32Array(C), cL = new Float32Array(C), cB = new Float32Array(C);
     for (var q = 0; q < C; q++) { var xq = C - (q + 0.5); cU[q] = U(xq); cL[q] = L(xq); cB[q] = B(xq); }
-    var ix = 0.5 * C - eye.gx, iy = 0.58 * Rr + eye.gy, R0 = 0.24 * C;
+    var ix = 0.5 * C - eye.gx, iy = 0.5 * Rr + eye.gy, R0 = 0.22 * C;
     var pr = 0.045 * C * (0.55 + 0.9 * eye.dil);                          // round pupil radius: dilates as it looks around
     eg.clearRect(0, 0, C * cell, Rr * cell);
     gw = C * cell; gh = Rr * cell;
@@ -956,16 +956,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       var xs = c + 0.5, y = r + 0.5, x = C - xs;
       var kind = null, col = null, a = 1;
       var u = cU[c], l = cL[c], inX = x > Pin[0] && x < Pout[0], tt = Math.max(0, Math.min(1, (x - Pin[0]) / (Pout[0] - Pin[0])));
-      var b = cB[c], lw = 1.1 + 1.6 * tt;
-      // brow armour: dark plates between the brow line and the lid, spikes along its top, gold-lit rim at the lid
-      var spike = 1.8 * Math.max(0, Math.sin(x * 0.55 + 0.6)) ** 3;
-      if (x < Pout[0] + 1.5 && y > b - spike && y < u - lw) {
-        var rim = (u - lw) - y;
-        if (rim < 1.1 && inX) { kind = 'plate'; col = mix(CHAR2, GOLD, 0.55 * (0.4 + 0.6 * tt)); }
-        else if (y < b - spike + 1.05) { kind = 'edge'; col = mix(CHAR2, AMBER, 0.35); }
-        else { kind = 'plate'; col = ((c + r * 2) % 7 === 0) ? mix(CHAR, AMBER, 0.25) : mix(CHAR, CHAR2, (r % 3) / 3); a = 0.95; }
-      }
-      else if (inX && y <= u + 0.35 && y > u - lw) { kind = 'lid'; col = mix(CHAR2, GOLD, 0.35 + 0.3 * tt); }
+      var lw = 0.9 + 1.1 * tt;
+      if (false) {}
+      else if (inX && y <= u + 0.35 && y > u - lw) { kind = 'lid'; col = mix(EMBER, GOLD, 0.5 + 0.4 * tt); }
       else if (x >= Pout[0] - 0.5 && x < Pout[0] + 3.4 && Math.abs(y - (Pout[1] - (x - Pout[0]) * 0.45)) < 0.8) { kind = 'lid'; col = mix(CHAR2, GOLD, 0.6); }
       if (!kind && inX && y > u && y < l) {
         var dx = x - ix, dy = y - iy, d = Math.hypot(dx, dy * 1.25) / R0, ang = Math.atan2(dy, dx);
@@ -983,7 +976,6 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         if (y < u + 0.8 && kind !== 'slit') { col = mix(EMBER, AMBER, 0.4); kind = 'ring'; }                 // lid shadow
       }
       if (!kind && inX && x > Pin[0] + 0.06 * C && x < Pout[0] - 0.04 * C && Math.abs(y - l) < 0.55) { kind = 'lower'; col = mix(CHAR2, GOLD, 0.3); }
-      else if (!kind && inX && y > l + 0.6 && y < l + 2.6 && ((c * 5 + r * 7) % 3 === 0)) { kind = 'plate'; col = mix(CHAR, CHAR2, 0.5); a = 0.75; }
       if (!kind) continue;
       var set = SETS[kind], ch = set[Math.floor(eye.chars[r * C + c] * set.length) % set.length];
       eg.globalAlpha = a; eg.fillStyle = col; eg.fillText(ch, xs * cell, y * cell);
@@ -992,7 +984,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // soft bloom: blur the quarter-res glow map once per render (not per frame)
     if (glowB.width !== glowC.width + 16) { glowB.width = glowC.width + 16; glowB.height = glowC.height + 16; }
     gb.clearRect(0, 0, glowB.width, glowB.height);
-    gb.filter = 'blur(4px)'; gb.drawImage(glowC, 8, 8); gb.filter = 'none';
+    gb.filter = 'blur(5px)'; gb.drawImage(glowC, 8, 8); gb.globalCompositeOperation = 'lighter'; gb.drawImage(glowB, 0, 0); gb.globalCompositeOperation = 'source-over'; gb.filter = 'none';
   }
   var gw = 0, gh = 0, embers = [];
 
@@ -1010,8 +1002,8 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       // bloom: the quarter-res glow map, blown up soft and added on top (cheap: the smoothing does the blur)
       var pw = 8 * 4, k = 0.4 + 0.6 * eye.o;           // glowB has an 8px (quarter-res) margin = 32px at full size
       g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true;
-      g.globalAlpha = 0.2 * k; g.drawImage(glowB, eye.x - pw, eye.y - pw, ew + pw * 2, eh + pw * 2);
-      g.globalAlpha = 0.1 * k; g.drawImage(glowB, eye.x - ew * 0.25 - pw, eye.y - eh * 0.3 - pw, ew * 1.5 + pw * 2, eh * 1.6 + pw * 2);
+      g.globalAlpha = 0.42 * k; g.drawImage(glowB, eye.x - pw, eye.y - pw, ew + pw * 2, eh + pw * 2);
+      g.globalAlpha = 0.24 * k; g.drawImage(glowB, eye.x - ew * 0.25 - pw, eye.y - eh * 0.3 - pw, ew * 1.5 + pw * 2, eh * 1.6 + pw * 2);
       g.globalCompositeOperation = 'source-over';
       g.globalAlpha = 0.9; g.drawImage(eyeC, eye.x, eye.y, ew, eh);
       // embers drifting up from the eye
