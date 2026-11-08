@@ -58,6 +58,7 @@ html{-webkit-text-size-adjust:100%;color-scheme:dark}
 :where(html.accent-fade) *,:where(html.accent-fade) *::before,:where(html.accent-fade) *::after{
   transition-property:color,background-color,border-color,fill,stroke,box-shadow,text-decoration-color,outline-color;
   transition-duration:1100ms;transition-timing-function:cubic-bezier(0.77,0,0.175,1);transition-delay:0s}
+html{scrollbar-gutter:stable} /* locking scroll (easter egg, menu) must not change the page width */
 html.lenis,html.lenis body{height:auto}
 .lenis.lenis-smooth{scroll-behavior:auto!important}
 .lenis.lenis-stopped{overflow:hidden}
@@ -186,6 +187,10 @@ section{position:relative}
 .sec-head{display:grid;grid-template-columns:1fr 3fr;gap:2rem;align-items:baseline;margin-bottom:clamp(3rem,7vw,5.5rem)}
 .sec-label{color:var(--mute);display:flex;gap:.75rem}
 .sec-label span{color:var(--ember)}
+/* Contact label sits over the sakura: give it a frosted pill so it always reads */
+.contact-label{display:inline-flex;align-items:center;margin:0 0 2rem;padding:.5rem 1rem;border-radius:999px;color:var(--bone);
+  background:rgba(12,12,13,.62);border:1px solid var(--line-2);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+@media (prefers-reduced-transparency:reduce){.contact-label{background:#0c0c0d;backdrop-filter:none}}
 .h2{margin:0;font-weight:500;font-size:clamp(2.3rem,5.6vw,5.25rem);line-height:1;letter-spacing:-.04em;max-width:16ch}
 .h2 .soft{color:var(--mute)}
 
@@ -562,6 +567,8 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   clip-path:circle(0% at 50% 100%);transition:clip-path 450ms var(--ease-in-out)}
 .egg[hidden]{display:none}
 .egg.is-open{clip-path:circle(150% at 50% 100%);transition:clip-path 900ms var(--ease-out)}
+/* closing: a GPU-only fade + settle instead of re-clipping a full-screen layer every frame */
+.egg.is-closing{clip-path:none;opacity:0;transform:scale(1.015);transition:opacity 520ms cubic-bezier(0.4,0,0.2,1),transform 520ms cubic-bezier(0.4,0,0.2,1);will-change:opacity,transform;pointer-events:none}
 .egg-rain{position:absolute;inset:0;width:100%;height:100%;opacity:.5}
 .egg-scan{position:absolute;inset:0;pointer-events:none;
   background:repeating-linear-gradient(to bottom,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),
@@ -1049,7 +1056,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   <canvas class="sakura" data-sakura aria-hidden="true"></canvas>
   <div class="wrap contact-grid">
     <div class="contact-copy">
-      <p class="sec-label mono" style="margin-bottom:2rem"><span>06</span>Contact</p>
+      <p class="sec-label mono contact-label"><span>06</span>Contact</p>
       <h2 class="h2" id="contact-title" data-split>Let's build something <span class="soft">that runs well.</span></h2>
       <p class="contact-lede" data-reveal>Games, reverse engineering, or a site that needs to be fast. Email works best, and I'm on GMT+8.</p>
     </div>
@@ -1677,8 +1684,10 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       ctx.globalAlpha = 1;
     }
 
-    function kick() { if (visible && !document.hidden && !still && !raf) raf = requestAnimationFrame(frame); }
-    function frame(now) { raf = 0; if (!visible || document.hidden) return; update(now); draw(now); kick(); }
+    let covered = false; // the easter-egg overlay hides the section: don't animate behind it
+    function kick() { if (visible && !covered && !document.hidden && !still && !raf) raf = requestAnimationFrame(frame); }
+    function frame(now) { raf = 0; if (!visible || covered || document.hidden) return; update(now); draw(now); kick(); }
+    document.addEventListener('egg', (e) => { covered = e.detail; kick(); });
 
     sec.addEventListener('pointermove', (e) => {
       const r = cv.getBoundingClientRect(), nx = e.clientX - r.left, ny = e.clientY - r.top;
@@ -1986,7 +1995,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     const EN = en.textContent, ZH = zh.textContent, SYS = sys.textContent;
     const ASCII = '!<>-_\\/[]{}=+*^?#%$01', CJK = '唯有变化永恒零壹序码虚空界光影流转';
     const BARN = 12;
-    let p = 0, idle = 0, decayRaf = 0, isOpen = false, cool = 0, opener = null, glitchId = 0, ambientId = 0;
+    let p = 0, idle = 0, decayRaf = 0, isOpen = false, cool = 0, opener = null, glitchId = 0, ambientId = 0, hideT = 0;
     const atBottom = () => innerHeight + scrollY >= document.documentElement.scrollHeight - 4;
 
     // progress pill follows the pull 1:1 (continuous feedback, not just at the end)
@@ -2073,7 +2082,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 
     function open() {
       if (isOpen) return; isOpen = true;
-      clearTimeout(idle); cancelAnimationFrame(decayRaf); p = 0; render();
+      clearTimeout(idle); clearTimeout(hideT); cancelAnimationFrame(decayRaf); p = 0; render();
+      egg.classList.remove('is-closing');
+      document.dispatchEvent(new CustomEvent('egg', { detail: true }));
       opener = document.activeElement;
       typeof pickAccent === 'function' && pickAccent();
       en.textContent = ''; zh.textContent = ''; sys.textContent = '';
@@ -2103,9 +2114,11 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     function close() {
       if (!isOpen) return; isOpen = false;
       clearInterval(glitchId); clearInterval(ambientId); cool = performance.now() + 900;
-      egg.classList.remove('is-open', 'burst');
+      cancelAnimationFrame(rainRaf); removeEventListener('resize', sizeRain); // freeze the rain while it fades
+      egg.classList.add('is-closing'); egg.classList.remove('burst');
       document.body.style.overflow = ''; lenis && lenis.start();
-      setTimeout(() => { if (!isOpen) { egg.hidden = true; cancelAnimationFrame(rainRaf); removeEventListener('resize', sizeRain); } }, 480);
+      document.dispatchEvent(new CustomEvent('egg', { detail: false }));
+      hideT = setTimeout(() => { if (!isOpen) { egg.hidden = true; egg.classList.remove('is-open', 'is-closing'); } }, 540);
       opener && opener.focus && opener.focus({ preventScroll: true });
     }
     closeBtn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
