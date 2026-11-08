@@ -394,40 +394,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .pc-total{letter-spacing:.04em;text-transform:none;text-align:right}
 .pc-total b{color:var(--bone);font-weight:500}
 .pc-act{border-top:1px solid var(--line)}
-@property --cc{syntax:'<color>';inherits:false;initial-value:#a855f7}
 .pc-act{position:relative}
-.pc-cal-wrap{overflow-x:auto;overflow-y:hidden;padding:1.6rem 1.1rem 1rem;scrollbar-width:thin;direction:rtl}
-.pc-cal{direction:ltr;display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,auto);grid-auto-columns:minmax(0,1fr);gap:clamp(3px,.35vw,5px);width:100%;min-width:760px;min-height:120px;cursor:crosshair}
-.pc-cal i{
-  --a:.14;--h:0;
-  display:block;aspect-ratio:1;border-radius:22%;
-  background:color-mix(in srgb,var(--cc) calc(var(--a) * 100%),#18181c);
-  transform:scale(calc(1 + var(--h) * .55));
-  filter:brightness(calc(1 + var(--h) * .9));
-  box-shadow:0 0 calc(var(--h) * 14px) color-mix(in srgb,var(--cc) calc(var(--h) * 90%),transparent);
-  transition:transform 180ms var(--ease-out),filter 180ms ease,box-shadow 180ms ease;
-  animation:cal-hue 6s linear infinite;
-  animation-delay:calc(var(--x,0) * -110ms + var(--y,0) * -160ms);
-  position:relative;z-index:calc(1 + var(--h) * 10);
-}
-.pc-cal i[data-l="1"]{--a:.42}
-.pc-cal i[data-l="2"]{--a:.62}
-.pc-cal i[data-l="3"]{--a:.82}
-.pc-cal i[data-l="4"]{--a:1}
-.pc-cal i:not([data-l="0"]){animation:cal-hue 6s linear infinite,cal-pulse 2.4s ease-in-out infinite;animation-delay:calc(var(--x,0) * -110ms + var(--y,0) * -160ms),calc(var(--x,0) * -90ms)}
-.pc-cal i.is-pad{visibility:hidden;animation:none}
-.pc-cal i.is-on{--h:1}
-@keyframes cal-hue{
-  0%,100%{--cc:#a855f7}   /* purple */
-  25%{--cc:#d946ef}       /* fuchsia */
-  50%{--cc:#ec4899}       /* pink */
-  75%{--cc:#ef4444}       /* red */
-}
-@keyframes cal-pulse{
-  0%,100%{box-shadow:0 0 0 0 transparent;filter:brightness(1)}
-  50%{box-shadow:0 0 12px 1px color-mix(in srgb,var(--cc) 75%,transparent);filter:brightness(1.35)}
-}
-.pc-cal.is-paused i{animation-play-state:paused}
+.pc-cal-wrap{overflow-x:auto;overflow-y:hidden;padding:1rem calc(1.1rem - 10px) .4rem;scrollbar-width:thin}
+.pc-cal{display:block;width:100%;min-width:760px;height:120px;cursor:crosshair}
 .pc-tip{position:absolute;left:0;top:0;z-index:20;pointer-events:none;padding:.45rem .65rem;border:1px solid var(--line-2);border-radius:6px;background:rgba(12,12,13,.92);backdrop-filter:blur(6px);color:var(--bone);font:500 .72rem/1.35 var(--mono);white-space:nowrap;opacity:0;transform:translate(-50%,calc(-100% - 10px));transition:opacity 120ms ease}
 .pc-tip b{color:var(--ember)}
 .pc-tip span{color:var(--mute);display:block}
@@ -445,8 +414,6 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .pc-scale i:first-of-type{margin-left:.4rem}.pc-scale i:last-of-type{margin-right:.4rem}
 .pc-act.is-failed .pc-cal-wrap,.pc-act.is-failed .pc-scale{display:none}
 .pc-act.is-failed .pc-cal-foot{padding-top:1rem}
-@media (prefers-reduced-motion:reduce){.pc-cal i,.pc-cal i:not([data-l="0"]){animation:none;transition:none}}
-.rm .pc-cal i,.rm .pc-cal i:not([data-l="0"]){animation:none;transition:none}
 .pc-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,.95fr);border-top:1px solid var(--line)}
 .pc-col+.pc-col{border-left:1px solid var(--line)}
 .pc-list{list-style:none;margin:0;padding:0 1.1rem}
@@ -801,7 +768,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       <!-- GitHub activity: filled live from GitHub's public contribution data -->
       <section class="pc-act" aria-labelledby="pc-act-title" data-gh-activity>
         <div class="pc-bar"><h4 class="mono" id="pc-act-title">GitHub activity</h4><span class="mono pc-total" data-gh-total>Loading…</span></div>
-        <div class="pc-cal-wrap"><div class="pc-cal" data-gh-cal role="img" aria-label="GitHub contribution calendar for the last year"></div></div>
+        <div class="pc-cal-wrap"><canvas class="pc-cal" data-gh-cal role="img" aria-label="GitHub contribution calendar for the last year"></canvas></div>
         <div class="pc-cal-foot mono"><a href="https://github.com/Eienmode" target="_blank" rel="noopener">@Eienmode ↗</a><span class="pc-scale" aria-hidden="true">Less <i data-l="0"></i><i data-l="1"></i><i data-l="2"></i><i data-l="3"></i><i data-l="4"></i> More</span></div>
       </section>
 
@@ -1170,105 +1137,148 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     });
   });
 
-  /* ---------- About: live GitHub contribution calendar ---------- */
+  /* ---------- About: live GitHub contribution calendar (one canvas, drawn only while visible) ---------- */
   (function ghActivity() {
     const box = document.querySelector('[data-gh-activity]');
     if (!box) return;
-    const cal = box.querySelector('[data-gh-cal]');
+    const cv = box.querySelector('[data-gh-cal]');
     const total = box.querySelector('[data-gh-total]');
+    const ctx = cv.getContext('2d');
     const fail = () => { box.classList.add('is-failed'); total.textContent = 'View activity on GitHub'; };
     const dateFmt = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const still = document.documentElement.classList.contains('rm') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Own Vercel function first (reads GitHub directly); third-party API as a backup.
+    // Purple -> fuchsia -> pink -> red -> back to purple
+    const PAL = [[168, 85, 247], [217, 70, 239], [236, 72, 153], [239, 68, 68], [168, 85, 247]];
+    const BG = [24, 24, 28];
+    const ALPHA = [0.14, 0.42, 0.62, 0.82, 1];
+    const pal = (t) => { t = (t % 1 + 1) % 1 * 4; const i = t | 0, f = t - i, a = PAL[i], b = PAL[i + 1];
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; };
+
+    let cells = [], cols = 0, cell = 0, gap = 0, W = 0, H = 0, dpr = 1;
+    const P = 10; // inner margin so enlarged edge cells and glows aren't clipped
+    let visible = false, raf = 0, t0 = performance.now();
+    let mx = -1e4, my = -1e4, hovering = false, hoverIdx = -1;
+    const heat = new Float32Array(400); // eased hover glow per cell
+
     const getJSON = (u) => fetch(u).then(r => (r.ok ? r.json() : Promise.reject(r.status)))
       .then(d => (d && d.contributions && d.contributions.length ? d : Promise.reject('empty')));
     getJSON('/api/contributions')
       .catch(() => getJSON('https://github-contributions-api.jogruber.de/v4/Eienmode?y=last'))
       .then(data => {
-        const days = (data && data.contributions) || [];
-        if (!days.length) return fail();
-        const lead = new Date(days[0].date + 'T00:00:00').getDay(); // pad so rows run Sun to Sat
-        const frag = document.createDocumentFragment();
-        const cells = [];
-        for (let i = 0; i < lead + days.length; i++) {
-          const e = document.createElement('i');
-          const x = Math.floor(i / 7), y = i % 7;
-          e.style.setProperty('--x', x); e.style.setProperty('--y', y);
-          if (i < lead) e.className = 'is-pad';
-          else {
-            const d = days[i - lead];
-            e.dataset.l = d.level;
-            e.dataset.count = d.count;
-            e.dataset.date = d.date;
-            cells.push(e);
-          }
-          frag.appendChild(e);
-        }
-        cal.appendChild(frag);
+        const days = data.contributions;
+        const lead = new Date(days[0].date + 'T00:00:00').getDay(); // rows run Sun..Sat
+        cells = days.map((d, k) => { const i = k + lead; return { x: (i / 7) | 0, y: i % 7, l: +d.level || 0, c: +d.count || 0, date: d.date }; });
+        cols = cells[cells.length - 1].x + 1;
         const n = data.total && data.total.lastYear != null ? data.total.lastYear : days.reduce((s, d) => s + d.count, 0);
         total.innerHTML = '<b>' + n.toLocaleString() + '</b> contribution' + (n === 1 ? '' : 's') + ' in the last year';
-        cal.setAttribute('aria-label', n + ' GitHub contributions in the last year');
-        interact(cells);
+        cv.setAttribute('aria-label', n + ' GitHub contributions in the last year');
+        layout();
+        new ResizeObserver(layout).observe(cv.parentElement);
+        new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }, { rootMargin: '100px' }).observe(cv);
+        document.addEventListener('visibilitychange', kick);
+        const wrap = cv.parentElement; wrap.scrollLeft = wrap.scrollWidth; // start on the latest weeks (phones)
+        if (window.matchMedia('(hover:hover) and (pointer:fine)').matches) bindHover();
+        draw(performance.now());
       })
       .catch(fail);
 
-    function interact(cells) {
-      // Pause the colour wave while the calendar is off screen.
-      if ('IntersectionObserver' in window) {
-        new IntersectionObserver(([en]) => cal.classList.toggle('is-paused', !en.isIntersecting)).observe(cal);
-      }
-      if (!window.matchMedia('(hover:hover) and (pointer:fine)').matches) return;
+    function layout() {
+      const w = cv.clientWidth; if (!w || !cols) return;
+      gap = Math.max(3, Math.min(5, w * 0.0035));
+      cell = (w - 2 * P - gap * (cols - 1)) / cols;
+      W = w; H = Math.round(cell * 7 + gap * 6 + 2 * P);
+      cv.style.height = H + 'px';
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      if (!raf) draw(performance.now());
+    }
 
+    function kick() {
+      const want = visible && !document.hidden && (!still || hovering || heat.some(v => v > 0.01));
+      if (want && !raf) raf = requestAnimationFrame(frame);
+    }
+    function frame(now) {
+      raf = 0;
+      draw(now);
+      kick();
+    }
+
+    function rrect(x, y, s, r) {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, s, s, r); else ctx.rect(x, y, s, s);
+      ctx.fill();
+    }
+
+    function draw(now) {
+      if (!cells.length || !W) return;
+      const t = still ? 0 : (now - t0) / 1000;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.translate(P, P);
+      const step = cell + gap, R = 70, rad = cell * 0.22;
+      const lit = [];
+      for (let i = 0; i < cells.length; i++) {
+        const c = cells[i];
+        const cx = c.x * step + cell / 2, cy = c.y * step + cell / 2;
+        // hover heat eases in/out so the spotlight feels soft
+        let target = 0;
+        if (hovering) { const d = Math.hypot(mx - cx, my - cy); if (d < R) target = Math.pow(1 - d / R, 1.6); }
+        heat[i] += (target - heat[i]) * 0.25;
+        if (heat[i] < 0.002) heat[i] = 0;
+        if (heat[i] > 0 || c.l > 0) { lit.push(i); continue; } // drawn after, on top
+        const col = pal(t / 6 + c.x * 0.018 + c.y * 0.027), a = ALPHA[0];
+        ctx.fillStyle = `rgb(${BG[0] + (col[0] - BG[0]) * a | 0},${BG[1] + (col[1] - BG[1]) * a | 0},${BG[2] + (col[2] - BG[2]) * a | 0})`;
+        rrect(c.x * step, c.y * step, cell, rad);
+      }
+      for (const i of lit) {
+        const c = cells[i], h = heat[i];
+        const col = pal(t / 6 + c.x * 0.018 + c.y * 0.027);
+        const pulse = c.l > 0 && !still ? 0.5 + 0.5 * Math.sin(t * 2.6 - c.x * 0.35) : 0;
+        const a = ALPHA[c.l];
+        const lift = Math.min(1, pulse * 0.3 + h * 0.45); // brighten toward white
+        let r = BG[0] + (col[0] - BG[0]) * a, g = BG[1] + (col[1] - BG[1]) * a, b = BG[2] + (col[2] - BG[2]) * a;
+        if (h > 0) { const m = Math.max(a, h); r = BG[0] + (col[0] - BG[0]) * m; g = BG[1] + (col[1] - BG[1]) * m; b = BG[2] + (col[2] - BG[2]) * m; }
+        r += (255 - r) * lift * 0.5; g += (255 - g) * lift * 0.5; b += (255 - b) * lift * 0.5;
+        const s = cell * (1 + h * 0.55), off = (s - cell) / 2;
+        const glow = c.l > 0 ? 4 + pulse * 10 + h * 10 : h * 14;
+        ctx.shadowColor = `rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},${Math.min(0.9, 0.35 + pulse * 0.4 + h * 0.5)})`;
+        ctx.shadowBlur = glow;
+        ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
+        rrect(c.x * step - off, c.y * step - off, s, rad * (1 + h * 0.55));
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    function bindHover() {
       const tip = document.createElement('div');
       tip.className = 'pc-tip'; tip.setAttribute('aria-hidden', 'true');
       box.appendChild(tip);
-
-      const RADIUS = 70;
-      let centres = [], lit = new Set(), raf = 0, mx = 0, my = 0, current = null;
-      const measure = () => {
-        centres = cells.map(c => { const r = c.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r]; });
-      };
-      const paint = () => {
-        raf = 0;
-        const next = new Set();
-        let best = null, bestD = Infinity;
-        for (let i = 0; i < cells.length; i++) {
-          const [cx, cy, r] = centres[i];
-          const d = Math.hypot(mx - cx, my - cy);
-          if (d < RADIUS) {
-            const h = Math.pow(1 - d / RADIUS, 1.6);
-            cells[i].style.setProperty('--h', h.toFixed(3));
-            next.add(cells[i]);
+      cv.addEventListener('pointermove', e => {
+        const r = cv.getBoundingClientRect();
+        mx = e.clientX - r.left - P; my = e.clientY - r.top - P; hovering = true;
+        const step = cell + gap;
+        const x = Math.floor(mx / step), y = Math.floor(my / step);
+        const inCell = mx - x * step <= cell + 1 && my - y * step <= cell + 1;
+        const idx = inCell ? cells.findIndex(c => c.x === x && c.y === y) : -1;
+        if (idx !== hoverIdx) {
+          hoverIdx = idx;
+          if (idx >= 0) {
+            const c = cells[idx];
+            tip.innerHTML = '<b>' + (c.c === 0 ? 'No' : c.c) + '</b> contribution' + (c.c === 1 ? '' : 's') +
+              '<span>' + dateFmt.format(new Date(c.date + 'T00:00:00')) + '</span>';
           }
-          if (mx >= r.left - 2 && mx <= r.right + 2 && my >= r.top - 2 && my <= r.bottom + 2 && d < bestD) { best = i; bestD = d; }
         }
-        lit.forEach(c => { if (!next.has(c)) c.style.removeProperty('--h'); });
-        lit = next;
-        if (best !== null && cells[best] !== current) {
-          current = cells[best];
-          const c = +current.dataset.count;
-          tip.innerHTML = '<b>' + (c === 0 ? 'No' : c) + '</b> contribution' + (c === 1 ? '' : 's') +
-            '<span>' + dateFmt.format(new Date(current.dataset.date + 'T00:00:00')) + '</span>';
-        }
-        if (best !== null) {
-          const br = box.getBoundingClientRect(), r = centres[best][2];
-          const half = tip.offsetWidth / 2;
-          const left = Math.min(Math.max(r.left + r.width / 2 - br.left, half + 8), br.width - half - 8);
+        if (idx >= 0) {
+          const c = cells[idx], br = box.getBoundingClientRect(), half = tip.offsetWidth / 2;
+          const left = Math.min(Math.max(r.left - br.left + P + c.x * step + cell / 2, half + 8), br.width - half - 8);
           tip.style.left = left + 'px';
-          tip.style.top = (r.top - br.top) + 'px';
+          tip.style.top = (r.top - br.top + P + c.y * step) + 'px';
           tip.classList.add('is-on');
-        } else { tip.classList.remove('is-on'); current = null; }
-      };
-      cal.addEventListener('pointerenter', measure);
-      cal.addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; if (!raf) raf = requestAnimationFrame(paint); });
-      cal.addEventListener('pointerleave', () => {
-        if (raf) cancelAnimationFrame(raf); raf = 0;
-        lit.forEach(c => c.style.removeProperty('--h')); lit.clear();
-        tip.classList.remove('is-on'); current = null;
-      });
-      cal.parentElement.addEventListener('scroll', measure, { passive: true });
-      window.addEventListener('scroll', measure, { passive: true });
-      window.addEventListener('resize', measure);
+        } else tip.classList.remove('is-on');
+        kick();
+      }, { passive: true });
+      cv.addEventListener('pointerleave', () => { hovering = false; hoverIdx = -1; mx = my = -1e4; tip.classList.remove('is-on'); kick(); });
     }
   })();
 
