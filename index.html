@@ -449,10 +449,11 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .pc-list>li+li{border-top:1px solid var(--line)}
 .pc .pc-t{font-weight:600;font-size:1rem;letter-spacing:-.01em;color:var(--bone)}
 .pc .pc-s{margin-top:.2rem;font-size:.88rem;color:var(--mute);line-height:1.4}
-.pc-exp{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:.9rem;align-items:center;padding:1rem 0}
-.pc-logo{display:grid;place-items:center;width:48px;height:48px}
+.pc-exp{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:.9rem;align-items:center;padding:1rem 0}
+.pc-logo{display:grid;place-items:center;width:64px;height:48px}
 .pc-logo img{width:48px;height:48px;object-fit:contain}
-.pc-logo img.wide{width:56px;height:42px;max-width:none} /* wide marks (S.R.chitects) get extra width instead of shrinking */
+.pc-logo img.wide{width:64px;height:48px;max-width:none} /* wide marks (S.R.chitects): full 48px height at their natural ratio */
+.pc-mark{width:48px;height:48px;display:block} /* inline line-icon logos (follow the accent) */
 .pc-date{color:var(--mute);text-transform:none;white-space:nowrap;align-self:start;padding-top:.15rem}
 .pc-work{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center;padding:1rem 0;text-decoration:none}
 .pc-work .pc-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -852,8 +853,8 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
             <li class="pc-exp"><span class="pc-logo"><img src="assets/logos/unia.png" alt="UNIA! LLC logo" width="48" height="48" loading="lazy" decoding="async"></span><div><p class="pc-t">Founder &amp; Software Engineer</p><p class="pc-s">UNIA! LLC · Software &amp; Game Development</p></div><span class="pc-date mono">Present</span></li>
             <li class="pc-exp"><span class="pc-logo"><img src="assets/logos/akebi.png" alt="Akebi-GC logo" width="48" height="48" loading="lazy" decoding="async"></span><div><p class="pc-t">Software Engineer</p><p class="pc-s">Akebi-GC · Game Runtime Tooling (C++)</p></div><span class="pc-date mono">2022 – 2024</span></li>
             <li class="pc-exp"><span class="pc-logo"><img src="assets/logos/dlsud.png" alt="De La Salle University–Dasmariñas seal" width="48" height="48" loading="lazy" decoding="async"></span><div><p class="pc-t">BS Information Technology</p><p class="pc-s">De La Salle University–Dasmariñas</p></div><span class="pc-date mono">Present</span></li>
-            <li class="pc-exp"><span class="pc-logo"><img class="wide" src="assets/logos/srchitects.png" alt="S.R.chitects Construction logo" width="56" height="42" loading="lazy" decoding="async"></span><div><p class="pc-t">Network Engineer &amp; Site Reliability Engineer (SRE)</p><p class="pc-s">S.R.chitects Construction Corporation</p></div><span class="pc-date mono">Present</span></li>
-            <li class="pc-exp"><span class="pc-logo"><img src="assets/logos/teracore.png" alt="TeraCore LLC logo" width="48" height="48" loading="lazy" decoding="async"></span><div><p class="pc-t">Solar Contractor</p><p class="pc-s">TeraCore LLC</p></div><span class="pc-date mono">Present</span></li>
+            <li class="pc-exp"><span class="pc-logo"><img class="wide" src="assets/logos/srchitects.png" alt="S.R.chitects Construction logo" width="64" height="48" loading="lazy" decoding="async"></span><div><p class="pc-t">Network Engineer &amp; Site Reliability Engineer (SRE)</p><p class="pc-s">S.R.chitects Construction Corporation</p></div><span class="pc-date mono">Present</span></li>
+            <li class="pc-exp"><span class="pc-logo"><svg class="pc-mark" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="TeraCore LLC logo"><circle cx="24" cy="10.5" r="6" fill="var(--ember)"/><path d="M24 0.8v1.6M12.6 10.5h-1.8M35.4 10.5h1.8M15.9 2.4l1.3 1.3M32.1 2.4l-1.3 1.3" stroke="var(--ember)" stroke-width="2" stroke-linecap="round"/><path d="M11.5 21.5h25l7 25h-39z" fill="color-mix(in srgb,var(--bone) 8%,transparent)" stroke="var(--bone)" stroke-width="2.2" stroke-linejoin="round"/><path d="M8.1 34h31.8M19.8 21.5l-2.4 25M28.2 21.5l2.4 25" stroke="var(--bone)" stroke-width="1.7" stroke-linecap="round" opacity=".75"/></svg></span><div><p class="pc-t">Solar Contractor</p><p class="pc-s">TeraCore LLC</p></div><span class="pc-date mono">Present</span></li>
             <li class="pc-exp"><span class="pc-logo"><img src="assets/logos/october12.png" alt="October 12 Private Resort logo" width="48" height="48" loading="lazy" decoding="async"></span><div><p class="pc-t">Owner</p><p class="pc-s">October 12 Private Resort</p></div><span class="pc-date mono">Present</span></li>
           </ul>
         </section>
