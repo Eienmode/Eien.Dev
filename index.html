@@ -1335,6 +1335,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     let mx = -1e4, my = -1e4, hovering = false, lastSpawn = 0;
     const base = document.createElement('canvas'), bctx = base.getContext('2d');
     let blooms = [], grid = new Map(), petals = [], glitches = [], petalSprites = [];
+    let hgrid = new Map(), lit = new Map(), wvx = 0, wvy = 0; // breeze: reactive blossoms, their eased strength, smoothed cursor velocity
     const CELL = 56, key = (x, y) => x * 65536 + y;
 
     /* ---- sprite atlas: one small canvas per (glyph, colour, size) ---- */
@@ -1444,7 +1445,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     function renderScene(trees) {
       base.width = cv.width; base.height = cv.height;
       bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      blooms = []; grid = new Map();
+      blooms = []; grid = new Map(); hgrid = new Map(); lit = new Map();
       // fallen petal carpet across the whole width (pink + white)
       for (let i = 0; i < W / 2.2; i++) {
         const x = rnd() * W, y = H - 4 - Math.pow(rnd(), 2) * 20;
@@ -1458,6 +1459,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
           blooms.push(b);
           const k = key(Math.floor(b.x / CELL), Math.floor(b.y / CELL));
           (grid.get(k) || grid.set(k, []).get(k)).push(b);
+          if (rnd() < 0.22) (hgrid.get(k) || hgrid.set(k, []).get(k)).push(b); // ~1 in 5 blossoms ripple in the breeze
         });
       });
       bctx.globalAlpha = 1;
@@ -1544,21 +1546,30 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }
       if (blooms.length && Math.random() < 0.35) { const b = pickR(blooms); spawnPetal(b.x, b.y, (Math.random() - 0.3) * 0.6, 0.3 + Math.random() * 0.5); }
 
-      // hover = a gust of wind: blossoms near the cursor flicker, petals blow away from it
+      // hover = a soft breeze: nearby blossoms ripple and brighten, petals float off with the cursor's drift
+      const R = 170, seen = new Set();
+      wvx *= 0.92; wvy *= 0.92;
       if (hovering) {
-        const cell = grid.get(key(Math.floor((mx + (Math.random() - 0.5) * 220) / CELL), Math.floor((my + (Math.random() - 0.5) * 220) / CELL)));
-        if (cell && glitches.length < 30) glitches.push({ b: pickR(cell), f: 3 + ((Math.random() * 5) | 0) });
-        if (now - lastSpawn > 35) {
+        const c0x = Math.floor((mx - R) / CELL), c1x = Math.floor((mx + R) / CELL), c0y = Math.floor((my - R) / CELL), c1y = Math.floor((my + R) / CELL);
+        for (let gx = c0x; gx <= c1x; gx++) for (let gy = c0y; gy <= c1y; gy++) {
+          const cell = hgrid.get(key(gx, gy)); if (!cell) continue;
+          for (const b of cell) if ((b.x - mx) ** 2 + (b.y - my) ** 2 < R * R && (lit.has(b) || lit.size < 110)) { seen.add(b); if (!lit.has(b)) lit.set(b, 0); }
+        }
+        if (now - lastSpawn > 160 && seen.size) {
           lastSpawn = now;
-          const near = grid.get(key(Math.floor((mx + (Math.random() - 0.5) * 160) / CELL), Math.floor((my + (Math.random() - 0.5) * 160) / CELL)));
-          if (near) { const b = pickR(near), dx = b.x - mx, dy = b.y - my, d = Math.hypot(dx, dy) || 1;
-            spawnPetal(b.x, b.y, dx / d * (1.5 + Math.random() * 2), dy / d * 1.2 + 0.4); }
+          const b = pickR([...seen]);
+          spawnPetal(b.x, b.y, Math.max(-1.2, Math.min(1.2, wvx * 0.06)) + (Math.random() - 0.5) * 0.4, 0.25 + Math.random() * 0.35);
         }
       }
+      lit.forEach((h, b) => {
+        const target = seen.has(b) ? 1 - Math.sqrt((b.x - mx) ** 2 + (b.y - my) ** 2) / R : 0;
+        h += (target - h) * (target > h ? 0.08 : 0.03);            // eases in and out slowly
+        if (h < 0.01 && !seen.has(b)) lit.delete(b); else lit.set(b, h);
+      });
       for (let i = petals.length - 1; i >= 0; i--) {
         const p = petals[i];
         if (hovering) { const dx = p.x - mx, dy = p.y - my, d2 = dx * dx + dy * dy;
-          if (d2 < 16000) { const f = (1 - d2 / 16000) * 0.35, d = Math.sqrt(d2) || 1; p.vx += dx / d * f; p.vy += dy / d * f * 0.6; p.vr += (Math.random() - 0.5) * 0.02; } }
+          if (d2 < 22000) { const f = (1 - d2 / 22000) * 0.02; p.vx += wvx * f; p.vy += Math.abs(wvy) * f * 0.3; } } // carried gently, never blasted
         p.sw += 0.03; p.vx *= 0.985; p.vy = Math.min(1.6, p.vy * 0.99 + 0.012);
         p.x += p.vx + Math.sin(p.sw) * 0.5; p.y += p.vy; p.rot += p.vr;
         if (p.y > H - 6) { p.y = H - 6; p.vy = 0; p.vx *= 0.8; p.life -= 0.025; } else p.life -= 0.0018;
@@ -1587,6 +1598,16 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
           ctx.globalAlpha = 1; ctx.fillStyle = '#fff4f8'; ctx.fillText(ch, b.x + j, b.y);
         }
       }
+      // breeze ripple: a light, slightly shifted copy of each nearby blossom sways over the original
+      if (lit.size) {
+        lit.forEach((h, b) => {
+          const sp = sprite(b.ch, PINKS[Math.max(0, b.c - 3)], b.s * (1 + h * 0.12), 700);
+          const sway = Math.sin(t * 3.2 - (b.x - mx) * 0.035 - (b.y - my) * 0.02) * h * 3.5;
+          ctx.globalAlpha = h * 0.85;
+          ctx.drawImage(sp.c, b.x + sway - sp.d / 2, b.y + sway * 0.35 - sp.d / 2, sp.d, sp.d);
+        });
+        ctx.globalAlpha = 1;
+      }
       // petals
       for (const p of petals) {
         const c = Math.cos(p.rot) * p.sc, s = Math.sin(p.rot) * p.sc;
@@ -1600,7 +1621,11 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     function kick() { if (visible && !document.hidden && !still && !raf) raf = requestAnimationFrame(frame); }
     function frame(now) { raf = 0; if (!visible || document.hidden) return; update(now); draw(now); kick(); }
 
-    sec.addEventListener('pointermove', (e) => { const r = cv.getBoundingClientRect(); mx = e.clientX - r.left; my = e.clientY - r.top; hovering = true; }, { passive: true });
+    sec.addEventListener('pointermove', (e) => {
+      const r = cv.getBoundingClientRect(), nx = e.clientX - r.left, ny = e.clientY - r.top;
+      if (hovering) { wvx = wvx * 0.7 + (nx - mx) * 0.3; wvy = wvy * 0.7 + (ny - my) * 0.3; }
+      mx = nx; my = ny; hovering = true;
+    }, { passive: true });
     sec.addEventListener('pointerleave', () => { hovering = false; mx = my = -1e4; });
     new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }, { rootMargin: '80px' }).observe(sec);
     new IntersectionObserver(([e]) => {
