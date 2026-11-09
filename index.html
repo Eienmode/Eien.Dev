@@ -133,7 +133,7 @@ button{font:inherit;color:inherit}
 /* while the page is moving the live blur would be recomputed every frame: swap in a near-identical tinted glass,
    the real blur returns ~150ms after scrolling stops */
 @media (hover:hover) and (pointer:fine){html.is-scrolling .nav::before{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(14,14,16,.86)}
-html.is-scrolling .readme.contact-card{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(24,20,24,.9)}}
+}
 .nav-inner{position:relative;padding-top:env(safe-area-inset-top);display:flex;align-items:center;justify-content:space-between;gap:1rem;height:calc(5rem + env(safe-area-inset-top))}
 .brand{display:flex;align-items:baseline;gap:.6rem;text-decoration:none;font-weight:600;letter-spacing:-.01em;font-size:1.2rem}
 .brand .mono{color:var(--mute)}
