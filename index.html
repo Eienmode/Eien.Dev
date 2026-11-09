@@ -918,7 +918,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // the most central slots win. Each gets its own pose: level / tilted / slanted, left or right eye.
     var md = mg.getImageData(0, 0, W, H).data;
     var inMask = function (x, y) { x |= 0; y |= 0; return x < 0 || y < 0 || x >= W || y >= H ? 0 : md[(y * W + x) * 4 + 3]; };
-    var sc = Math.max(0.75, Math.min(1.3, W / 1700)), base = 120 * sc, gapX = base * 1.75, gapY = base * 0.95;
+    var sc = Math.max(0.75, Math.min(1.3, W / 1700)), base = 200 * sc, gapX = base * 1.85, gapY = base * 1.2;
     var dotsX = W * 0.5;                                                   // the waving dots live right of this
     var slots = [], sx0 = 0, sy0 = 0, cnt = 0;
     for (var gy0 = top + gapY * 0.6, row = 0; gy0 < low - gapY * 0.4; gy0 += gapY, row++)
@@ -929,14 +929,14 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }
     if (cnt) { sx0 /= cnt; sy0 /= cnt; }
     slots.sort(function (p, q) { return Math.hypot(p.x - sx0, (p.y - sy0) * 1.6) - Math.hypot(q.x - sx0, (q.y - sy0) * 1.6); });
-    var want = Math.min(slots.length, Math.max(3, Math.min(8, Math.round((W * 0.5) * (low - top) / 110000))));
+    var want = Math.min(slots.length, Math.max(2, Math.min(5, Math.round((W * 0.5) * (low - top) / 190000))));
     var POSES = [0, 0, -0.18, 0.18, -0.34, 0.34, -0.1, 0.1];
     eyes = [];
     for (var si = 0; si < want; si++) {
-      var ew = base * (0.88 + Math.random() * 0.24), eh = ew * 0.5, s0 = slots[si];
+      var ew = base * (0.88 + Math.random() * 0.24), eh = ew * 0.62, s0 = slots[si];
       var ecv = document.createElement('canvas'); ecv.width = Math.ceil(ew); ecv.height = Math.ceil(eh);
       eyes.push({ x: s0.x - ew / 2, y: s0.y - eh / 2, w: ew, h: eh, cv: ecv, ctx: ecv.getContext('2d'), o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0,
-        dil: Math.random(), tdil: Math.random(), rot: POSES[si % POSES.length] + (Math.random() - 0.5) * 0.08, flip: Math.random() < 0.5,
+        chars: new Float32Array(2400).map(Math.random), shuf: 0, spin: Math.random(), dil: Math.random(), tdil: Math.random(), rot: POSES[si % POSES.length] + (Math.random() - 0.5) * 0.08, flip: Math.random() < 0.5,
         look: (Math.random() - 0.5) * 0.16,                                 // each has its own resting gaze direction
         blinkT: -1, dbl: false, nextBlink: 0, nextLook: 0, glow: [0, 0, 0, 0], rt: 0 });
     }
@@ -965,50 +965,56 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   function hueOf(c) { var r = c[0] / 255, g2 = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g2, b), mn = Math.min(r, g2, b), d = mx - mn;
     if (!d) return 0; var hh = mx === r ? ((g2 - b) / d) % 6 : mx === g2 ? (b - r) / d + 2 : (r - g2) / d + 4; return (hh * 60 + 360) % 360; }
   function hslRgb(h0, s, l) { var k = function (n) { return (n + h0 / 30) % 12; }, a = s * Math.min(l, 1 - l), f = function (n) { return Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))); }; return f(0) + ',' + f(8) + ',' + f(4); }
-  var COMP = '0,255,200';                      // ring glow = the accent's opposite hue (updated with the accent)
+  var COMP = '0,255,200', COMP_RGB = [0, 255, 200];                      // ring glow = the accent's opposite hue (updated with the accent)
+  var EYE_SETS = { lid: '#%&@$=', lower: '_~-', sclera: '.:', body: '.:;', pupil: '@#%&', ring: '01ABCDEF<>{}*', spike: '^/\\|*', hl: '+*' };
   function renderEye(e) {
-    var C = e.w, Rr = e.h, o = e.o, x2 = e.ctx;
-    var Pin = [0.05 * C, 0.6 * Rr], Pout = [0.97 * C, 0.36 * Rr], uy = 0.02 * Rr + (0.9 * Rr - 0.02 * Rr) * (1 - o), ly = 1.02 * Rr;
-    var ix = (0.52 + e.look) * C + e.gx, iy = 0.58 * Rr + e.gy, R0 = 0.23 * C, pupil = 0.12 + 0.07 * e.dil;
-    var dark = mix(BLACK, accent, 0.25), deep = mix(BLACK, accent, 0.5), light = mix(accent, WHITE, 0.5);
+    var cell = Math.max(3, Math.round(e.w / 58)), C = Math.floor(e.w / cell), Rr = Math.floor(e.h / cell), o = e.o, x2 = e.ctx;
+    var Pin = [0.04 * C, 0.56 * Rr], Pout = [0.97 * C, 0.42 * Rr], uy = -0.16 * Rr + (1.0 * Rr + 0.16 * Rr) * (1 - o);
+    var U = yAt(Pin, [0.5 * C, uy], Pout), L = yAt(Pin, [0.52 * C, 1.16 * Rr], Pout);
+    var cU = new Float32Array(C), cL = new Float32Array(C);
+    for (var q = 0; q < C; q++) { var xq = e.flip ? C - (q + 0.5) : q + 0.5; cU[q] = U(xq); cL[q] = L(xq); }
+    var ix = (0.5 + e.look) * C + e.gx / cell, iy = 0.52 * Rr + e.gy / cell, R0 = 0.23 * C, pupil = 0.24 + 0.1 * e.dil;
+    var ringCol = mix(accent, WHITE, 0.25), body = mix(BLACK, accent, 0.18), lidCol = mix(BLACK, accent, 0.55);
+    var RINGS = [{ r: 0.48, n: 14, a: 0.22, ph: 0.1 }, { r: 0.68, n: 18, a: 0.17, ph: 0.55 }, { r: 0.86, n: 22, a: 0.12, ph: 0.3 }];
     x2.setTransform(1, 0, 0, 1, 0, 0); x2.clearRect(0, 0, e.cv.width, e.cv.height);
-    x2.save(); if (e.flip) { x2.translate(C, 0); x2.scale(-1, 1); }
-    function opening() { x2.beginPath(); x2.moveTo(Pin[0], Pin[1]); x2.quadraticCurveTo(0.5 * C, uy, Pout[0], Pout[1]); x2.quadraticCurveTo(0.55 * C, ly, Pin[0], Pin[1]); x2.closePath(); }
-    opening(); x2.fillStyle = 'rgba(214,208,224,0.10)'; x2.fill();
-    x2.save(); opening(); x2.clip();
-    var gr = x2.createRadialGradient(ix, iy, 0, ix, iy, R0);
-    gr.addColorStop(0, light); gr.addColorStop(0.55, 'rgb(' + accent.join(',') + ')'); gr.addColorStop(1, deep);
-    x2.fillStyle = gr; x2.beginPath(); x2.arc(ix, iy, R0, 0, 6.2832); x2.fill();
-    // crisp rings (no blur); a lit ring glows in the complementary colour
-    for (var k = 0; k < 4; k++) {
-      var rr = R0 * (pupil + (0.94 - pupil) * (k + 1) / 4.3);
-      x2.lineWidth = Math.max(1.2, R0 * 0.06); x2.strokeStyle = dark; x2.globalAlpha = 1;
-      x2.beginPath(); x2.arc(ix, iy, rr, 0, 6.2832); x2.stroke();
-      if (e.glow[k] > 0.02) {
-        x2.shadowColor = 'rgba(' + COMP + ',1)'; x2.shadowBlur = 10 * e.glow[k];
-        x2.strokeStyle = 'rgba(' + COMP + ',' + e.glow[k] + ')'; x2.beginPath(); x2.arc(ix, iy, rr, 0, 6.2832); x2.stroke();
-        x2.shadowBlur = 0;
+    x2.font = '600 ' + Math.round(cell * 1.1) + 'px "Geist Mono", ui-monospace, monospace'; x2.textAlign = 'center'; x2.textBaseline = 'middle';
+    for (var r = 0; r < Rr; r++) for (var c = 0; c < C; c++) {
+      var x = e.flip ? C - (c + 0.5) : c + 0.5, y = r + 0.5, u = cU[c], l = cL[c], inX = x > Pin[0] && x < Pout[0];
+      var kind = null, col = null, al = 1;
+      if (inX && Math.abs(y - u) < 0.75) { kind = 'lid'; col = lidCol; }
+      else if (inX && x > Pin[0] + 0.08 * C && x < Pout[0] - 0.05 * C && Math.abs(y - l) < 0.5) { kind = 'lower'; col = mix(BLACK, accent, 0.4); al = 0.7; }
+      else if (inX && y > u && y < l) {
+        var dx = x - ix, dy = y - iy, d = Math.hypot(dx, dy) / R0, th = Math.atan2(dy, dx) / 6.2832 + 0.5;
+        if (Math.hypot(x - (ix + 0.1 * C), y - (iy - 0.32 * R0)) < Math.max(0.8, 0.03 * C)) { kind = 'hl'; col = '#ffffff'; }
+        else if (d < pupil) { kind = 'pupil'; col = 'rgb(18,10,20)'; }
+        else if (d < 1.02) {
+          // thin rings whose edge is a sharp sawtooth of spikes pointing outward
+          for (var k = 0; k < RINGS.length && !kind; k++) {
+            var R1 = RINGS[k], f = th * R1.n + R1.ph + e.spin * (k % 2 ? -1 : 1), tw = 1 - 2 * Math.abs(f - Math.floor(f) - 0.5);
+            var rr = R1.r + R1.a * Math.pow(tw, 3);              // pow -> narrow sharp spike tips
+            if (d > R1.r - 0.05 && d < rr + 0.045) {
+              kind = d > R1.r + 0.03 ? 'spike' : 'ring';
+              col = e.glow[k] > 0.05 ? mix(accent, COMP_RGB, Math.min(1, e.glow[k])) : ringCol;
+              if (e.glow[k] > 0.05) al = 1; else al = kind === 'spike' ? 0.85 : 1;
+            }
+          }
+          if (!kind) { kind = 'body'; col = body; al = 0.8; }
+        } else { kind = 'sclera'; col = 'rgb(84,80,92)'; al = 0.5; }
+        if (y < u + 0.9 && kind !== 'pupil' && kind !== 'hl') { col = mix(BLACK, accent, 0.15); al = 0.8; }   // lid shadow
       }
+      if (!kind) continue;
+      var set = EYE_SETS[kind], ch = set[Math.floor(e.chars[(r * C + c) % e.chars.length] * set.length) % set.length];
+      x2.globalAlpha = al; x2.fillStyle = col; x2.fillText(ch, (c + 0.5) * cell, (r + 0.5) * cell);
     }
-    x2.lineWidth = Math.max(1.5, R0 * 0.08); x2.strokeStyle = dark; x2.beginPath(); x2.arc(ix, iy, R0 * 0.97, 0, 6.2832); x2.stroke();
-    x2.fillStyle = '#0b0710'; x2.beginPath(); x2.arc(ix, iy, R0 * pupil, 0, 6.2832); x2.fill();
-    x2.fillStyle = 'rgba(255,255,255,.85)'; x2.beginPath(); x2.arc(ix + 0.08 * C, iy - 0.3 * R0, Math.max(1.5, 0.022 * C), 0, 6.2832); x2.fill();
-    var sh = x2.createLinearGradient(0, Math.min(Pin[1], Pout[1]) - 2, 0, iy); sh.addColorStop(0, 'rgba(8,6,10,.7)'); sh.addColorStop(1, 'rgba(8,6,10,0)');
-    x2.fillStyle = sh; x2.fillRect(0, 0, C, Rr);
-    x2.restore();
-    // one clean outline: upper lid a little heavier, lower lid faint. No lashes, no extra strokes.
-    x2.lineCap = 'round'; x2.lineJoin = 'round'; x2.strokeStyle = deep;
-    x2.lineWidth = Math.max(1.4, Rr * 0.05); x2.beginPath(); x2.moveTo(Pin[0], Pin[1]); x2.quadraticCurveTo(0.5 * C, uy, Pout[0], Pout[1]); x2.stroke();
-    x2.globalAlpha = 0.5; x2.lineWidth = Math.max(1, Rr * 0.025); x2.beginPath(); x2.moveTo(Pin[0], Pin[1]); x2.quadraticCurveTo(0.55 * C, ly, Pout[0], Pout[1]); x2.stroke();
     x2.globalAlpha = 1;
-    x2.restore();
     // faded border
-    x2.save(); x2.globalCompositeOperation = 'destination-in'; x2.translate(C / 2, Rr * 0.55); x2.scale(1, Rr / C * 1.25);
-    var fade = x2.createRadialGradient(0, 0, C * 0.2, 0, 0, C * 0.53); fade.addColorStop(0, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,0)');
-    x2.fillStyle = fade; x2.fillRect(-C, -C, C * 2, C * 2); x2.restore();
-    e.lx = e.flip ? C - ix : ix; e.ly = iy; e.pr = R0 * pupil; e.px = 1;
+    var Wp = e.cv.width, Hp = e.cv.height;
+    x2.save(); x2.globalCompositeOperation = 'destination-in'; x2.translate(Wp / 2, Hp * 0.55); x2.scale(1, Hp / Wp * 1.25);
+    var fade = x2.createRadialGradient(0, 0, Wp * 0.2, 0, 0, Wp * 0.53); fade.addColorStop(0, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,0)');
+    x2.fillStyle = fade; x2.fillRect(-Wp, -Wp, Wp * 2, Wp * 2); x2.restore();
+    var ixp = ix * cell; e.lx = e.flip ? Wp - ixp : ixp; e.ly = iy * cell; e.pr = R0 * pupil * cell * 0.3; e.px = 1;
     var hue = hueOf(accent); e.pg = (hue < 20 || hue > 340) ? '255,110,199' : '255,40,70';
-    COMP = hslRgb((hue + 180) % 360, 0.95, 0.6);
+    COMP = hslRgb((hue + 180) % 360, 0.95, 0.6); COMP_RGB = COMP.split(',').map(Number);
   }
   var gw = 0, gh = 0, embers = [];
 
@@ -1027,7 +1033,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       if (e.px && e.o > 0.15) {
         var lx = e.lx - e.w / 2, ly = e.ly - e.h / 2, pulse = 0.8 + 0.2 * Math.sin(performance.now() / 700 + n), R = e.pr * 3.2;
         var pg = g.createRadialGradient(lx, ly, e.pr * 0.4, lx, ly, R);
-        pg.addColorStop(0, 'rgba(' + e.pg + ',' + (0.85 * pulse * e.o) + ')'); pg.addColorStop(0.35, 'rgba(' + e.pg + ',' + (0.35 * pulse * e.o) + ')'); pg.addColorStop(1, 'rgba(' + e.pg + ',0)');
+        pg.addColorStop(0, 'rgba(' + e.pg + ',' + (0.6 * pulse * e.o) + ')'); pg.addColorStop(0.35, 'rgba(' + e.pg + ',' + (0.22 * pulse * e.o) + ')'); pg.addColorStop(1, 'rgba(' + e.pg + ',0)');
         g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1; g.fillStyle = pg; g.fillRect(lx - R, ly - R, R * 2, R * 2);
         g.globalCompositeOperation = 'source-over';
       }
@@ -1073,9 +1079,11 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       if (now > ey.nextLook) { ey.nextLook = now + 1600 + Math.random() * 2800; ey.tgx = (Math.random() - 0.5) * ey.w * 0.12; ey.tgy = (Math.random() - 0.5) * ey.h * 0.1; ey.tdil = Math.random(); }
       if (Math.abs(ey.tgx - ey.gx) > 0.05 || Math.abs(ey.tgy - ey.gy) > 0.05) { ey.gx += (ey.tgx - ey.gx) * 0.18; ey.gy += (ey.tgy - ey.gy) * 0.18; d2 = true; }
       if (Math.abs(ey.tdil - ey.dil) > 0.01) { ey.dil += (ey.tdil - ey.dil) * 0.05; d2 = true; }
-      if (Math.random() < 0.025) { ey.glow[(Math.random() * 4) | 0] = 1; }                  // a ring flares now and then
+      if (Math.random() < 0.025) { ey.glow[(Math.random() * 3) | 0] = 1; }                  // a ring flares now and then
+      ey.spin = (ey.spin || 0) + 0.004; d2 = true;                                          // spikes slowly turn
+      if (now - ey.shuf > 140) { ey.shuf = now; for (var q2 = 0; q2 < 160; q2++) ey.chars[(Math.random() * ey.chars.length) | 0] = Math.random(); }  // the code keeps changing
       for (var k = 0; k < 4; k++) if (ey.glow[k] > 0.02) { ey.glow[k] *= 0.9; d2 = true; } else ey.glow[k] = 0;
-      if (d2 && now - ey.rt > 40) { ey.rt = now; renderEye(ey); }
+      if (d2 && now - ey.rt > 70) { ey.rt = now; renderEye(ey); }
     }
     paint();
   }
