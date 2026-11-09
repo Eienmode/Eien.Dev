@@ -942,7 +942,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         blinkT: -1, dbl: false, nextBlink: 0, nextLook: 0, glow: [0, 0, 0, 0], rt: 0 });
     }
     // the open space left of / below "Jan": always give it an eye
-    var wx = leftX * 0.42, wy = bot + (low - bot) * 0.3;
+    var wx = leftX * 0.42, wy = bot + (low - bot) * 0.38;
     if (!eyes.some(function (q) { return q.x + q.w / 2 < leftX && q.y > bot; })) {
       var ww = Math.min(base * 1.05, leftX * 0.62), wh = ww * 0.62, wcv = document.createElement('canvas'); wcv.width = Math.ceil(ww); wcv.height = Math.ceil(wh);
       eyes.push({ x: wx - ww / 2, y: wy - wh / 2, w: ww, h: wh, cv: wcv, ctx: wcv.getContext('2d'), o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0,
