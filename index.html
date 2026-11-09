@@ -925,6 +925,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       for (var gx0 = gapX * 0.55 + (row % 2) * gapX * 0.5; gx0 < dotsX - base * 0.6; gx0 += gapX) {
         var ex = gx0 + (Math.random() - 0.5) * gapX * 0.18, ey = gy0 + (Math.random() - 0.5) * gapY * 0.18;
         if (inMask(ex, ey) < 225 || inMask(ex - base * 0.55, ey) < 170 || inMask(ex + base * 0.55, ey) < 170 || inMask(ex, ey - base * 0.3) < 170 || inMask(ex, ey + base * 0.3) < 170) continue;
+        if (ex + base * 0.5 > leftX && ey + base * 0.35 > bot - 30) continue;     // keep clear of the name
         slots.push({ x: ex, y: ey }); sx0 += ex; sy0 += ey; cnt++;
       }
     if (cnt) { sx0 /= cnt; sy0 /= cnt; }
@@ -939,6 +940,14 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         chars: new Float32Array(2400).map(Math.random), shuf: 0, spin: Math.random(), dil: Math.random(), tdil: Math.random(), rot: POSES[si % POSES.length] + (Math.random() - 0.5) * 0.08, flip: Math.random() < 0.5,
         look: (Math.random() - 0.5) * 0.16,                                 // each has its own resting gaze direction
         blinkT: -1, dbl: false, nextBlink: 0, nextLook: 0, glow: [0, 0, 0, 0], rt: 0 });
+    }
+    // the open space left of / below "Jan": always give it an eye
+    var wx = leftX * 0.42, wy = bot + (low - bot) * 0.5;
+    if (!eyes.some(function (q) { return q.x + q.w / 2 < leftX && q.y > bot; })) {
+      var ww = Math.min(base * 1.05, leftX * 0.62), wh = ww * 0.62, wcv = document.createElement('canvas'); wcv.width = Math.ceil(ww); wcv.height = Math.ceil(wh);
+      eyes.push({ x: wx - ww / 2, y: wy - wh / 2, w: ww, h: wh, cv: wcv, ctx: wcv.getContext('2d'), o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0,
+        chars: new Float32Array(2400).map(Math.random), shuf: 0, spin: Math.random(), dil: Math.random(), tdil: Math.random(), rot: 0.16, flip: false,
+        look: 0.06, blinkT: -1, dbl: false, nextBlink: 0, nextLook: 0, glow: [0, 0, 0, 0], rt: 0 });
     }
     cols = [];
     for (var x = 8; x < endX; x += 16) cols.push({ x: x, y: top + Math.random() * h, v: 0.45 + Math.random() * 0.6, max: x < leftX ? low : bot });
