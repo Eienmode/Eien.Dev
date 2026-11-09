@@ -918,12 +918,12 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // biggest eye that fits in the widest part of the triangle (top-left), with a little air
     var L0 = Math.max(80, R * 0.15), ew = Math.min(R * 0.62, h * 1.9), eh, cx, cy;
     for (var k = 0; k < 40; k++) {
-      eh = ew * 0.42; cx = L0 + ew / 2; cy = top + 14 + eh / 2;
+      eh = ew * 0.5; cx = L0 + ew / 2; cy = top + 14 + eh / 2;
       var xh = R * (1 - (cy + eh * 0.42 - top) / h);           // hypotenuse at the bottom of the eye opening
       if (cx + ew * 0.5 < xh - 12) break;
       ew *= 0.96;
     }
-    var cell = Math.max(6, Math.round(ew / 80)), ncol = Math.round(ew / cell), nrow = Math.round(eh / cell);
+    var cell = Math.max(5, Math.round(ew / 96)), ncol = Math.round(ew / cell), nrow = Math.round(eh / cell);
     eye = { x: cx - ncol * cell / 2, y: cy - nrow * cell / 2, cell: cell, cols: ncol, rows: nrow, chars: [], o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0, dil: 0.5, tdil: 0.5 };
     for (var i = 0; i < ncol * nrow; i++) eye.chars.push(Math.random());
     eyeC.width = ncol * cell * dpr; eyeC.height = nrow * cell * dpr; eg.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -953,15 +953,18 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     AMBER = accent; GOLD = [accent[0] + (255 - accent[0]) * 0.35, accent[1] + (255 - accent[1]) * 0.35, accent[2] + (255 - accent[2]) * 0.35];
     GOLD_HOT = [accent[0] + (255 - accent[0]) * 0.8, accent[1] + (255 - accent[1]) * 0.8, accent[2] + (255 - accent[2]) * 0.8]; EMBER = [accent[0] * 0.4, accent[1] * 0.4, accent[2] * 0.4];
     var C = eye.cols, Rr = eye.rows, cell = eye.cell, o = eye.o;
-    var Pin = [0.05 * C, 0.62 * Rr], Pout = [0.98 * C, 0.26 * Rr];                  // inner corner low, outer point high: a glare
-    var uy = -0.02 * Rr + (0.86 * Rr + 0.02 * Rr) * (1 - o);
-    var U = yAt(Pin, [0.5 * C, uy], Pout), L = yAt(Pin, [0.55 * C, 1.0 * Rr], Pout);
+    // ringed eye: calm, half-lidded almond; the upper lid rests over the top of a large ringed iris
+    var Pin = [0.05 * C, 0.6 * Rr], Pout = [0.97 * C, 0.36 * Rr];
+    var uy = 0.02 * Rr + (0.9 * Rr - 0.02 * Rr) * (1 - o);
+    var U = yAt(Pin, [0.5 * C, uy], Pout), L = yAt(Pin, [0.55 * C, 1.02 * Rr], Pout);
     var B = yAt([0.0 * C, 0.42 * Rr], [0.45 * C, 0.02 * Rr], [1.0 * C, 0.10 * Rr]);   // top of the brow armour
     // the curves only depend on x: evaluate them once per column instead of once per cell
     var cU = new Float32Array(C), cL = new Float32Array(C), cB = new Float32Array(C);
     for (var q = 0; q < C; q++) { var xq = C - (q + 0.5); cU[q] = U(xq); cL[q] = L(xq); cB[q] = B(xq); }
-    var ix = 0.5 * C - eye.gx, iy = 0.5 * Rr + eye.gy, R0 = 0.22 * C;
-    var pr = 0.045 * C * (0.55 + 0.9 * eye.dil);                          // round pupil radius: dilates as it looks around
+    var ix = 0.52 * C - eye.gx, iy = 0.58 * Rr + eye.gy, R0 = 0.23 * C;
+    var pupil = 0.1 + 0.07 * eye.dil;                                     // pupil + ring spacing breathe as it looks around
+    var lashes = [];
+    [0.72, 0.8, 0.88, 0.95].forEach(function (t, n) { var p = bez(Pin, [0.5 * C, uy], Pout, t); lashes.push([p[0], p[1] - 0.6, p[0] + 1.4 + n * 0.7, p[1] - 2.6 - n * 0.5]); });
     eg.clearRect(0, 0, C * cell, Rr * cell);
     gw = C * cell; gh = Rr * cell;
     if (glowC.width !== Math.ceil(gw / 4)) { glowC.width = Math.ceil(gw / 4); glowC.height = Math.ceil(gh / 4); }
@@ -974,20 +977,19 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       var lw = 0.9 + 1.1 * tt;
       if (false) {}
       else if (inX && y <= u + 0.35 && y > u - lw) { kind = 'lid'; col = mix(EMBER, GOLD, 0.5 + 0.4 * tt); }
+      else if (lashes.some(function (s) { return segD(x, y, s[0], s[1], s[2], s[3]) < 0.5; })) { kind = 'lid'; col = mix(EMBER, GOLD, 0.7); }
       else if (x >= Pout[0] - 0.5 && x < Pout[0] + 3.4 && Math.abs(y - (Pout[1] - (x - Pout[0]) * 0.45)) < 0.8) { kind = 'lid'; col = mix(CHAR2, GOLD, 0.6); }
       if (!kind && inX && y > u && y < l) {
-        var dx = x - ix, dy = y - iy, d = Math.hypot(dx, dy * 1.25) / R0, ang = Math.atan2(dy, dx);
-        var pd = Math.hypot(dx, dy * 1.1);
-        if (pd < pr) { kind = 'slit'; col = 'rgb(14,8,16)'; }
-        else if (pd < pr + 0.8) { kind = 'ring'; col = mix(EMBER, AMBER, 0.5); }
-        else {
-          var streak = 0.5 + 0.5 * Math.sin(ang * 11 + Math.sin(ang * 4) * 2.2);
-          var heat = Math.max(0, 1.05 - d) + streak * 0.22 - Math.abs(dy) / Rr * 0.4;
-          if (heat > 0.85) { kind = 'core'; col = mix(GOLD, GOLD_HOT, Math.min(1, (heat - 0.85) * 2.5)); }
-          else if (heat > 0.45) { kind = 'iris'; col = mix(AMBER, GOLD, (heat - 0.45) / 0.4); }
-          else { kind = 'ring'; col = mix(EMBER, AMBER, Math.max(0, heat) / 0.45); }
-          gg.fillStyle = mix(AMBER, GOLD, Math.min(1, Math.max(0, heat))); gg.fillRect(xs * cell / 4 - cell / 8, y * cell / 4 - cell / 8, cell / 4, cell / 4);
-        }
+        var dx = x - ix, dy = y - iy, d = Math.hypot(dx, dy) / R0;
+        if (Math.hypot(x - (ix + 0.08 * C), y - (iy - 0.3 * R0)) < 0.022 * C) { kind = 'hl'; col = '#ffffff'; }   // small catch-light
+        else if (d < pupil) { kind = 'slit'; col = 'rgb(14,8,16)'; }
+        else if (d > 0.94) { kind = 'ring'; col = mix(BLACK, accent, 0.3); }                                   // dark outer rim
+        else if (d < 1) {
+          // concentric rings: alternating light bands and dark rings, brightest near the pupil
+          var band = (d - pupil) / (0.94 - pupil) * 3.4, f = band - Math.floor(band);
+          if (f < 0.3) { kind = 'ring'; col = mix(BLACK, accent, 0.3); }
+          else { kind = 'iris'; col = mix(accent, WHITE, Math.max(0.05, 0.5 - d * 0.4)); }
+        } else { kind = 'lower'; col = mix(CHAR2, GOLD, 0.15); a = 0.55; }                                  // white of the eye, dim
         if (y < u + 0.8 && kind !== 'slit') { col = mix(EMBER, AMBER, 0.4); kind = 'ring'; }                 // lid shadow
       }
       if (!kind && inX && x > Pin[0] + 0.06 * C && x < Pout[0] - 0.04 * C && Math.abs(y - l) < 0.55) { kind = 'lower'; col = mix(CHAR2, GOLD, 0.3); }
