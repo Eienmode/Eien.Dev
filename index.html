@@ -130,6 +130,10 @@ button{font:inherit;color:inherit}
   transition:background-color 300ms ease,border-color 300ms ease;
 }
 .nav.is-scrolled::before{background:rgba(12,12,13,.58);border-bottom-color:rgba(236,233,226,.12)}
+/* while the page is moving the live blur would be recomputed every frame: swap in a near-identical tinted glass,
+   the real blur returns ~150ms after scrolling stops */
+html.is-scrolling .nav::before{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(14,14,16,.86)}
+html.is-scrolling .readme.contact-card{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(24,20,24,.9)}
 .nav-inner{position:relative;padding-top:env(safe-area-inset-top);display:flex;align-items:center;justify-content:space-between;gap:1rem;height:calc(5rem + env(safe-area-inset-top))}
 .brand{display:flex;align-items:baseline;gap:.6rem;text-decoration:none;font-weight:600;letter-spacing:-.01em;font-size:1.2rem}
 .brand .mono{color:var(--mute)}
@@ -868,10 +872,12 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   var cv = document.createElement('canvas'); cv.className = 'hero-eye'; cv.setAttribute('aria-hidden', 'true');
   var vis = hero.querySelector('.hero-visual'), fieldCv = vis && vis.querySelector('canvas');
   cv.classList.add('is-live');
-  if (fieldCv) vis.insertBefore(cv, fieldCv); else if (vis) vis.appendChild(cv); else hero.prepend(cv);
+  var cvE = document.createElement('canvas'); cvE.className = 'hero-eye is-live'; cvE.setAttribute('aria-hidden', 'true');
+  if (fieldCv) { vis.insertBefore(cv, fieldCv); vis.insertBefore(cvE, fieldCv); } else if (vis) { vis.appendChild(cv); vis.appendChild(cvE); } else { hero.prepend(cvE); hero.prepend(cv); }
+  var gE = cvE.getContext('2d'), edpr = 1;
   var maskC = document.createElement('canvas'), mg = maskC.getContext('2d');
   var ER = 2;   // eyes are rendered at 2x and scaled down smoothly: crisp glyphs on any screen
-  var g = cv.getContext('2d'), rainC = document.createElement('canvas'), rg = rainC.getContext('2d'),
+  var gR = cv.getContext('2d'), g = gR, rainC = document.createElement('canvas'), rg = rainC.getContext('2d'),
       eyeC = document.createElement('canvas'), eg = eyeC.getContext('2d');
   var root = document.documentElement;
   var still = root.classList.contains('rm') || matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -900,10 +906,12 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     W = hr.width; H = hr.height; dpr = Math.min(2, window.devicePixelRatio || 1); // full screen sharpness
     var top = mr.bottom - hr.top + 14, bot = glyphTop - hr.top - 4, R = W * 0.58, h = bot - top;
     on = W >= 900 && h >= 170;
-    cv.style.display = on ? '' : 'none';
+    cv.style.display = cvE.style.display = on ? '' : 'none';
     if (!on) return;
-    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
-    rainC.width = cv.width; rainC.height = cv.height; rg.setTransform(dpr, 0, 0, dpr, 0, 0);
+    edpr = dpr; dpr = 1;                                   // rain: 1x (faint glyphs, a quarter of the pixels); eyes: full sharpness
+    cv.width = W; cv.height = H; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    cvE.width = Math.round(W * edpr); cvE.height = Math.round(H * edpr); cvE.style.width = W + 'px'; cvE.style.height = H + 'px';
+    rainC.width = W; rainC.height = H; rg.setTransform(1, 0, 0, 1, 0, 0);
     // rain area (left side only): the space above the name (fading out toward the middle) plus the
     // wedge left of the name - wide beside "Jan", narrowing toward the bottom-left corner
     var nr0 = document.createRange(); nr0.selectNodeContents(name); var nb = nr0.getBoundingClientRect();
@@ -1061,11 +1069,15 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   //      the dot-field canvas, so the waving dots always draw on top of the rain.
   function paint() {
     if (!on || !tri) return;
-    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
-    g.globalAlpha = 0.55; g.drawImage(rainC, 0, 0);
-    g.globalAlpha = 1; g.globalCompositeOperation = 'destination-in'; g.drawImage(maskC, 0, 0, cv.width, cv.height);
-    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    var RW = Math.min(W, Math.ceil(tri.endX + 60));                 // nothing is drawn right of the rain area
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, RW, H);
+    g.globalAlpha = 0.55; g.drawImage(rainC, 0, 0, RW, H, 0, 0, RW, H);
+    g.globalAlpha = 1; g.globalCompositeOperation = 'destination-in'; g.drawImage(maskC, 0, 0, RW, H, 0, 0, RW, H);
     g.globalCompositeOperation = 'source-over';
+    // eyes: separate sharp canvas
+    g = gE;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, Math.ceil(RW * edpr), cvE.height);
+    g.setTransform(edpr, 0, 0, edpr, 0, 0); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
     for (var n = 0; n < eyes.length; n++) {
       var e = eyes[n];
       g.save(); g.translate(e.x + e.w / 2, e.y + e.h / 2); g.rotate(e.rot);
@@ -1080,6 +1092,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       g.restore();
     }
     g.globalAlpha = 1;
+    g = gR;
   }
 
 
@@ -1094,7 +1107,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     var dirty = false;
     if (now - accentT > 1000) { accentT = now; readAccent(); dirty = true; }
     // rain: fade the trail layer, draw new heads
-    rg.globalCompositeOperation = 'destination-out'; rg.fillStyle = 'rgba(0,0,0,0.13)'; rg.fillRect(0, 0, W, H);
+    rg.globalCompositeOperation = 'destination-out'; rg.fillStyle = 'rgba(0,0,0,0.13)'; rg.fillRect(0, 0, Math.min(W, tri.endX + 60), H);
     rg.globalCompositeOperation = 'source-over';
     rg.font = '500 13px "Geist Mono", ui-monospace, monospace';
     var acc = 'rgb(' + accent.join(',') + ')';
@@ -3204,6 +3217,10 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   if (!reduce && window.Lenis) {
     lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
     window.__lenis = lenis; dispatchEvent(new Event('lenis:ready')); // lets the section-background canvas redraw in lockstep
+    // html.is-scrolling while the page moves (lets expensive live effects, like the header blur, stand down)
+    let scrollIdle = 0;
+    const markScrolling = () => { if (!root.classList.contains('is-scrolling')) root.classList.add('is-scrolling'); clearTimeout(scrollIdle); scrollIdle = setTimeout(() => root.classList.remove('is-scrolling'), 150); };
+    lenis.on('scroll', markScrolling);
     lenis.on('scroll', (e) => { ScrollTrigger.update(); onScrollNav(e.scroll); });
     const raf = (t) => lenis.raf(t * 1000);
     gsap.ticker.add(raf); gsap.ticker.lagSmoothing(0);
