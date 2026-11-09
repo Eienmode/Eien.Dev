@@ -918,7 +918,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // the most central slots win. Each gets its own pose: level / tilted / slanted, left or right eye.
     var md = mg.getImageData(0, 0, W, H).data;
     var inMask = function (x, y) { x |= 0; y |= 0; return x < 0 || y < 0 || x >= W || y >= H ? 0 : md[(y * W + x) * 4 + 3]; };
-    var sc = Math.max(0.75, Math.min(1.3, W / 1700)), base = 200 * sc, gapX = base * 1.85, gapY = base * 1.2;
+    var sc = Math.max(0.75, Math.min(1.3, W / 1700)), base = 125 * sc, gapX = base * 1.9, gapY = base * 1.25;
     var dotsX = W * 0.5;                                                   // the waving dots live right of this
     var slots = [], sx0 = 0, sy0 = 0, cnt = 0;
     for (var gy0 = top + gapY * 0.6, row = 0; gy0 < low - gapY * 0.4; gy0 += gapY, row++)
@@ -929,7 +929,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }
     if (cnt) { sx0 /= cnt; sy0 /= cnt; }
     slots.sort(function (p, q) { return Math.hypot(p.x - sx0, (p.y - sy0) * 1.6) - Math.hypot(q.x - sx0, (q.y - sy0) * 1.6); });
-    var want = Math.min(slots.length, Math.max(2, Math.min(5, Math.round((W * 0.5) * (low - top) / 190000))));
+    var want = Math.min(slots.length, Math.max(2, Math.min(14, Math.round((W * 0.5) * (low - top) / 60000))));
     var POSES = [0, 0, -0.18, 0.18, -0.34, 0.34, -0.1, 0.1];
     eyes = [];
     for (var si = 0; si < want; si++) {
@@ -966,9 +966,20 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     if (!d) return 0; var hh = mx === r ? ((g2 - b) / d) % 6 : mx === g2 ? (b - r) / d + 2 : (r - g2) / d + 4; return (hh * 60 + 360) % 360; }
   function hslRgb(h0, s, l) { var k = function (n) { return (n + h0 / 30) % 12; }, a = s * Math.min(l, 1 - l), f = function (n) { return Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))); }; return f(0) + ',' + f(8) + ',' + f(4); }
   var COMP = '0,255,200', COMP_RGB = [0, 255, 200];                      // ring glow = the accent's opposite hue (updated with the accent)
+  var SPR = new Map();
+  function spr(ch, col, px) {
+    var k = ch + col + px, s = SPR.get(k);
+    if (!s) {
+      if (SPR.size > 3000) SPR.clear();
+      s = document.createElement('canvas'); s.width = s.height = Math.ceil(px * 1.4);
+      var sg = s.getContext('2d'); sg.font = '600 ' + px + 'px "Geist Mono", ui-monospace, monospace'; sg.textAlign = 'center'; sg.textBaseline = 'middle';
+      sg.fillStyle = col; sg.fillText(ch, s.width / 2, s.height / 2); SPR.set(k, s);
+    }
+    return s;
+  }
   var EYE_SETS = { lid: '#%&@$=', lower: '_~-', sclera: '.:', body: '.:;', pupil: '@#%&', ring: '01ABCDEF<>{}*', spike: '^/\\|*', hl: '+*' };
   function renderEye(e) {
-    var cell = Math.max(3, Math.round(e.w / 58)), C = Math.floor(e.w / cell), Rr = Math.floor(e.h / cell), o = e.o, x2 = e.ctx;
+    var cell = Math.max(3, Math.round(e.w / 44)), C = Math.floor(e.w / cell), Rr = Math.floor(e.h / cell), o = e.o, x2 = e.ctx;
     var Pin = [0.04 * C, 0.56 * Rr], Pout = [0.97 * C, 0.42 * Rr], uy = -0.16 * Rr + (1.0 * Rr + 0.16 * Rr) * (1 - o);
     var U = yAt(Pin, [0.5 * C, uy], Pout), L = yAt(Pin, [0.52 * C, 1.16 * Rr], Pout);
     var cU = new Float32Array(C), cL = new Float32Array(C);
@@ -977,7 +988,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     var ringCol = mix(accent, WHITE, 0.25), body = mix(BLACK, accent, 0.18), lidCol = mix(BLACK, accent, 0.55);
     var RINGS = [{ r: 0.48, n: 14, a: 0.22, ph: 0.1 }, { r: 0.68, n: 18, a: 0.17, ph: 0.55 }, { r: 0.86, n: 22, a: 0.12, ph: 0.3 }];
     x2.setTransform(1, 0, 0, 1, 0, 0); x2.clearRect(0, 0, e.cv.width, e.cv.height);
-    x2.font = '600 ' + Math.round(cell * 1.1) + 'px "Geist Mono", ui-monospace, monospace'; x2.textAlign = 'center'; x2.textBaseline = 'middle';
+    var fpx = Math.round(cell * 1.1);
     for (var r = 0; r < Rr; r++) for (var c = 0; c < C; c++) {
       var x = e.flip ? C - (c + 0.5) : c + 0.5, y = r + 0.5, u = cU[c], l = cL[c], inX = x > Pin[0] && x < Pout[0];
       var kind = null, col = null, al = 1;
@@ -994,7 +1005,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
             var rr = R1.r + R1.a * Math.pow(tw, 3);              // pow -> narrow sharp spike tips
             if (d > R1.r - 0.05 && d < rr + 0.045) {
               kind = d > R1.r + 0.03 ? 'spike' : 'ring';
-              col = e.glow[k] > 0.05 ? mix(accent, COMP_RGB, Math.min(1, e.glow[k])) : ringCol;
+              col = e.glow[k] > 0.05 ? mix(accent, COMP_RGB, Math.round(Math.min(1, e.glow[k]) * 4) / 4) : ringCol;
               if (e.glow[k] > 0.05) al = 1; else al = kind === 'spike' ? 0.85 : 1;
             }
           }
@@ -1004,7 +1015,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }
       if (!kind) continue;
       var set = EYE_SETS[kind], ch = set[Math.floor(e.chars[(r * C + c) % e.chars.length] * set.length) % set.length];
-      x2.globalAlpha = al; x2.fillStyle = col; x2.fillText(ch, (c + 0.5) * cell, (r + 0.5) * cell);
+      var sp = spr(ch, col, fpx); x2.globalAlpha = al; x2.drawImage(sp, (c + 0.5) * cell - sp.width / 2, (r + 0.5) * cell - sp.height / 2);
     }
     x2.globalAlpha = 1;
     // faded border
@@ -1067,7 +1078,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       if (c.y > yMax + 10) { c.y = tri.top - Math.random() * 40; c.v = 0.45 + Math.random() * 0.6; }
     }
     rg.globalAlpha = 1;
-    // each eye blinks, glances, dilates and lights its rings on its own clock
+    // each eye blinks, glances, dilates and lights its rings on its own clock; redraws are budgeted below
     for (var n = 0; n < eyes.length; n++) {
       var ey = eyes[n], d2 = dirty;
       if (!ey.nextBlink) ey.nextBlink = now + 800 + Math.random() * 4000;
@@ -1080,11 +1091,12 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       if (Math.abs(ey.tgx - ey.gx) > 0.05 || Math.abs(ey.tgy - ey.gy) > 0.05) { ey.gx += (ey.tgx - ey.gx) * 0.18; ey.gy += (ey.tgy - ey.gy) * 0.18; d2 = true; }
       if (Math.abs(ey.tdil - ey.dil) > 0.01) { ey.dil += (ey.tdil - ey.dil) * 0.05; d2 = true; }
       if (Math.random() < 0.025) { ey.glow[(Math.random() * 3) | 0] = 1; }                  // a ring flares now and then
-      ey.spin = (ey.spin || 0) + 0.004; d2 = true;                                          // spikes slowly turn
-      if (now - ey.shuf > 140) { ey.shuf = now; for (var q2 = 0; q2 < 160; q2++) ey.chars[(Math.random() * ey.chars.length) | 0] = Math.random(); }  // the code keeps changing
+      if (now - ey.shuf > 220) { ey.shuf = now; ey.spin = (ey.spin || 0) + 0.05; d2 = true; for (var q2 = 0; q2 < 120; q2++) ey.chars[(Math.random() * ey.chars.length) | 0] = Math.random(); }  // spikes turn + code changes, relaxed
       for (var k = 0; k < 4; k++) if (ey.glow[k] > 0.02) { ey.glow[k] *= 0.9; d2 = true; } else ey.glow[k] = 0;
-      if (d2 && now - ey.rt > 70) { ey.rt = now; renderEye(ey); }
+      ey.dirty = ey.dirty || d2; ey.blinking = ey.blinkT >= 0;
     }
+    var budget = 2, order = eyes.filter(function (q) { return q.dirty; }).sort(function (p, q) { return (q.blinking - p.blinking) || (p.rt - q.rt); });
+    for (var bi = 0; bi < order.length && budget > 0; bi++) { var eb = order[bi]; if (!eb.blinking && now - eb.rt < 90) continue; eb.rt = now; eb.dirty = false; renderEye(eb); budget--; }
     paint();
   }
   function kick() { if (!raf && seen && !document.hidden && on && !still) raf = requestAnimationFrame(frame); }
