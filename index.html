@@ -1089,10 +1089,13 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       g.save(); g.translate(e.x + e.w / 2 + (Math.random() - 0.5) * tr, e.y + e.h / 2 + (Math.random() - 0.5) * tr); g.rotate(e.rot);
       g.globalAlpha = 0.62; g.drawImage(e.cv, -e.w / 2, -e.h / 2, e.w, e.h);         // dimmed: they sit behind the page
       if (e.px && e.o > 0.15) {
-        var lx = e.lx - e.w / 2, ly = e.ly - e.h / 2, pulse = (0.75 + 0.25 * Math.sin(performance.now() / (600 - 380 * (e.rage || 0)) + n * 1.7)) * (1 + 0.9 * (e.rage || 0)), R = e.pr * (1.9 + 1.4 * (e.rage || 0));
+        var lx = e.lx - e.w / 2, ly = e.ly - e.h / 2, pulse = (0.75 + 0.25 * Math.sin(performance.now() / (600 - 380 * (e.rage || 0)) + n * 1.7)) * (1 + 0.9 * (e.rage || 0)), R = e.pr * (1.9 + 0.7 * (e.rage || 0));
         var pg = g.createRadialGradient(lx, ly, 0, lx, ly, R);
         pg.addColorStop(0, 'rgba(' + e.pg + ',' + (0.75 * pulse * e.o) + ')'); pg.addColorStop(0.45, 'rgba(' + e.pg + ',' + (0.3 * pulse * e.o) + ')'); pg.addColorStop(1, 'rgba(' + e.pg + ',0)');
+        var oo2 = Math.min(e.o, 1 - 0.42 * (e.rage || 0));
+        g.save(); g.beginPath(); g.ellipse(0, e.h * 0.04, e.w * 0.44, e.h * (0.32 * oo2 + 0.03), 0, 0, 6.2832); g.clip();   // glow stays inside the eye
         g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1; g.fillStyle = pg; g.fillRect(lx - R, ly - R, R * 2, R * 2);
+        g.restore();
         g.globalCompositeOperation = 'source-over';
       }
       g.restore();
@@ -1141,7 +1144,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       if (angry && ptr.ok) {                                          // stare at the cursor
         var cxE = ey.x + ey.w / 2, cyE = ey.y + ey.h / 2, vx = ptr.x - cxE, vy = ptr.y - cyE, cs = Math.cos(-ey.rot), sn = Math.sin(-ey.rot);
         var lx2 = vx * cs - vy * sn, ly2 = vx * sn + vy * cs, dd = Math.hypot(lx2, ly2) || 1, k2 = Math.min(1, dd / 260);
-        ey.tgx = (ey.flip ? -1 : 1) * (lx2 / dd) * k2 * ey.w * 0.2; ey.tgy = (ly2 / dd) * k2 * ey.h * 0.16; ey.nextLook = now + 900;
+        ey.tgx = (ey.flip ? -1 : 1) * (lx2 / dd) * k2 * ey.w * 0.13; ey.tgy = (ly2 / dd) * k2 * ey.h * 0.06; ey.nextLook = now + 900;
       } else if (now > ey.nextLook) { ey.nextLook = now + 1600 + Math.random() * 2800; ey.tgx = (Math.random() - 0.5) * ey.w * 0.12; ey.tgy = (Math.random() - 0.5) * ey.h * 0.1; ey.tdil = Math.random(); }
       if (Math.abs(ey.tgx - ey.gx) > 0.05 || Math.abs(ey.tgy - ey.gy) > 0.05) { var fk = angry ? 0.35 : 0.18; ey.gx += (ey.tgx - ey.gx) * fk; ey.gy += (ey.tgy - ey.gy) * fk; d2 = true; }
       if (Math.abs(ey.tdil - ey.dil) > 0.01) { ey.dil += (ey.tdil - ey.dil) * 0.05; d2 = true; }
@@ -1150,8 +1153,8 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       for (var k = 0; k < 4; k++) if (ey.glow[k] > 0.02) { ey.glow[k] *= 0.9; d2 = true; } else ey.glow[k] = 0;
       ey.dirty = ey.dirty || d2; ey.blinking = ey.blinkT >= 0;
     }
-    var budget = angry || eyes.some(function (q) { return q.rage > 0.01; }) ? 5 : 2, order = eyes.filter(function (q) { return q.dirty; }).sort(function (p, q) { return (q.blinking - p.blinking) || (p.rt - q.rt); });
-    for (var bi = 0; bi < order.length && budget > 0; bi++) { var eb = order[bi]; if (!eb.blinking && now - eb.rt < (angry ? 45 : 90)) continue; eb.rt = now; eb.dirty = false; renderEye(eb); budget--; }
+    var budget = angry || eyes.some(function (q) { return q.rage > 0.01; }) ? 3 : 2, order = eyes.filter(function (q) { return q.dirty; }).sort(function (p, q) { return (q.blinking - p.blinking) || (p.rt - q.rt); });
+    for (var bi = 0; bi < order.length && budget > 0; bi++) { var eb = order[bi]; if (!eb.blinking && now - eb.rt < (angry ? 60 : 90)) continue; eb.rt = now; eb.dirty = false; renderEye(eb); budget--; }
     paint();
   }
   function kick() { if (!raf && seen && !document.hidden && on && !still) raf = requestAnimationFrame(frame); }
