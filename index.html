@@ -999,7 +999,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     }
     return s;
   }
-  var EYE_SETS = { lid: '#%&@$=', lower: '_~-', sclera: '.:', body: '.:;', pupil: '@#%&', ring: '01ABCDEF<>{}*', spike: '^/\\|*', hl: '+*' };
+  var EYE_SETS = { lid: '#%&@$=', lower: '_~-', sclera: '.:', body: '.:;', pupil: '@#%&', ring: '01ABCDEF<>{}*', spike: '^/\\|*', hl: '+*', core: '@#0*%&', prim: '*o+:' };
   function renderEye(e) {
     var cell = Math.max(3, Math.round(e.w / 44)), C = Math.floor(e.w / cell), Rr = Math.floor(e.h / cell), o = e.o, x2 = e.ctx;
     var Pin = [0.04 * C, 0.56 * Rr], Pout = [0.97 * C, 0.42 * Rr], uy = -0.16 * Rr + (1.0 * Rr + 0.16 * Rr) * (1 - o);
@@ -1008,6 +1008,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     for (var q = 0; q < C; q++) { var xq = e.flip ? C - (q + 0.5) : q + 0.5; cU[q] = U(xq); cL[q] = L(xq); }
     var ix = (0.5 + e.look) * C + e.gx / cell, iy = 0.52 * Rr + e.gy / cell, R0 = 0.23 * C, pupil = 0.24 + 0.1 * e.dil;
     var ringCol = mix(accent, WHITE, 0.25), body = mix(BLACK, accent, 0.18), lidCol = mix(BLACK, accent, 0.55);
+    var hue0 = hueOf(accent); e.pg = (hue0 < 20 || hue0 > 340) ? '255,110,199' : '255,40,70'; var GL = e.pg.split(',').map(Number);
     var RINGS = [{ r: 0.48, n: 14, a: 0.22, ph: 0.1 }, { r: 0.68, n: 18, a: 0.17, ph: 0.55 }, { r: 0.86, n: 22, a: 0.12, ph: 0.3 }];
     x2.setTransform(1, 0, 0, 1, 0, 0); x2.clearRect(0, 0, e.cv.width, e.cv.height); x2.setTransform(ER, 0, 0, ER, 0, 0);
     x2.imageSmoothingEnabled = true; x2.imageSmoothingQuality = 'high';
@@ -1020,7 +1021,12 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       else if (inX && y > u && y < l) {
         var dx = x - ix, dy = y - iy, d = Math.hypot(dx, dy) / R0, th = Math.atan2(dy, dx) / 6.2832 + 0.5;
         if (Math.hypot(x - (ix + 0.1 * C), y - (iy - 0.32 * R0)) < Math.max(0.8, 0.03 * C)) { kind = 'hl'; col = '#ffffff'; }
-        else if (d < pupil) { kind = 'pupil'; col = 'rgb(18,10,20)'; }
+        else if (d < pupil) {
+          var pd = d / pupil;
+          if (pd < 0.42) { kind = 'core'; col = mix(GL, WHITE, Math.max(0, 0.75 - pd * 1.6)); }            // hot core
+          else if (pd > 0.8) { kind = 'prim'; col = mix(BLACK, GL, 0.85); al = 0.9; }                      // glowing rim
+          else { kind = 'pupil'; col = 'rgb(16,8,14)'; }
+        }
         else if (d < 1.02) {
           // thin rings whose edge is a sharp sawtooth of spikes pointing outward
           for (var k = 0; k < RINGS.length && !kind; k++) {
@@ -1046,9 +1052,8 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     x2.save(); x2.globalCompositeOperation = 'destination-in'; x2.translate(Wp / 2, Hp * 0.55); x2.scale(1, Hp / Wp * 1.25);
     var fade = x2.createRadialGradient(0, 0, Wp * 0.2, 0, 0, Wp * 0.53); fade.addColorStop(0, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,0)');
     x2.fillStyle = fade; x2.fillRect(-Wp, -Wp, Wp * 2, Wp * 2); x2.restore();
-    var ixp = ix * cell; e.lx = e.flip ? Wp - ixp : ixp; e.ly = iy * cell; e.pr = R0 * pupil * cell * 0.3; e.px = 1;
-    var hue = hueOf(accent); e.pg = (hue < 20 || hue > 340) ? '255,110,199' : '255,40,70';
-    COMP = hslRgb((hue + 180) % 360, 0.95, 0.6); COMP_RGB = COMP.split(',').map(Number);
+    var ixp = ix * cell; e.lx = e.flip ? Wp - ixp : ixp; e.ly = iy * cell; e.pr = R0 * pupil * cell; e.px = 1;
+    COMP = hslRgb((hue0 + 180) % 360, 0.95, 0.6); COMP_RGB = COMP.split(',').map(Number);
   }
   var gw = 0, gh = 0, embers = [];
 
@@ -1066,9 +1071,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       g.save(); g.translate(e.x + e.w / 2, e.y + e.h / 2); g.rotate(e.rot);
       g.globalAlpha = 0.62; g.drawImage(e.cv, -e.w / 2, -e.h / 2, e.w, e.h);         // dimmed: they sit behind the page
       if (e.px && e.o > 0.15) {
-        var lx = e.lx - e.w / 2, ly = e.ly - e.h / 2, pulse = 0.8 + 0.2 * Math.sin(performance.now() / 700 + n), R = e.pr * 3.2;
-        var pg = g.createRadialGradient(lx, ly, e.pr * 0.4, lx, ly, R);
-        pg.addColorStop(0, 'rgba(' + e.pg + ',' + (0.6 * pulse * e.o) + ')'); pg.addColorStop(0.35, 'rgba(' + e.pg + ',' + (0.22 * pulse * e.o) + ')'); pg.addColorStop(1, 'rgba(' + e.pg + ',0)');
+        var lx = e.lx - e.w / 2, ly = e.ly - e.h / 2, pulse = 0.75 + 0.25 * Math.sin(performance.now() / 600 + n * 1.7), R = e.pr * 1.9;
+        var pg = g.createRadialGradient(lx, ly, 0, lx, ly, R);
+        pg.addColorStop(0, 'rgba(' + e.pg + ',' + (0.75 * pulse * e.o) + ')'); pg.addColorStop(0.45, 'rgba(' + e.pg + ',' + (0.3 * pulse * e.o) + ')'); pg.addColorStop(1, 'rgba(' + e.pg + ',0)');
         g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1; g.fillStyle = pg; g.fillRect(lx - R, ly - R, R * 2, R * 2);
         g.globalCompositeOperation = 'source-over';
       }
