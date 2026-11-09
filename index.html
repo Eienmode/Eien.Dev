@@ -132,8 +132,8 @@ button{font:inherit;color:inherit}
 .nav.is-scrolled::before{background:rgba(12,12,13,.58);border-bottom-color:rgba(236,233,226,.12)}
 /* while the page is moving the live blur would be recomputed every frame: swap in a near-identical tinted glass,
    the real blur returns ~150ms after scrolling stops */
-html.is-scrolling .nav::before{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(14,14,16,.86)}
-html.is-scrolling .readme.contact-card{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(24,20,24,.9)}
+@media (hover:hover) and (pointer:fine){html.is-scrolling .nav::before{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(14,14,16,.86)}
+html.is-scrolling .readme.contact-card{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(24,20,24,.9)}}
 .nav-inner{position:relative;padding-top:env(safe-area-inset-top);display:flex;align-items:center;justify-content:space-between;gap:1rem;height:calc(5rem + env(safe-area-inset-top))}
 .brand{display:flex;align-items:baseline;gap:.6rem;text-decoration:none;font-weight:600;letter-spacing:-.01em;font-size:1.2rem}
 .brand .mono{color:var(--mute)}
@@ -467,8 +467,8 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 .pc-total b{color:var(--bone);font-weight:500}
 .pc-act{border-top:1px solid var(--line)}
 .pc-act{position:relative}
-.pc-cal-wrap{overflow-x:auto;overflow-y:hidden;padding:1rem calc(1.1rem - 10px) .4rem;scrollbar-width:thin}
-.pc-cal{display:block;width:100%;min-width:760px;height:120px;cursor:crosshair}
+.pc-cal-wrap{overflow:hidden;padding:1rem calc(1.1rem - 10px) .4rem}
+.pc-cal{display:block;width:100%;height:120px;cursor:crosshair}
 .pc-tip{position:absolute;left:0;top:0;z-index:20;pointer-events:none;padding:.45rem .65rem;border:1px solid var(--line-2);border-radius:6px;background:rgba(12,12,13,.92);backdrop-filter:blur(6px);color:var(--bone);font:500 .72rem/1.35 var(--mono);white-space:nowrap;opacity:0;transform:translate(-50%,calc(-100% - 10px));transition:opacity 120ms ease}
 .pc-tip b{color:var(--ember)}
 .pc-tip span{color:var(--mute);display:block}
@@ -2025,7 +2025,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     const pal = (t) => { t = (t % 1 + 1) % 1 * 4; const i = t | 0, f = t - i, a = PAL[i], b = PAL[i + 1];
       return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; };
 
-    let cells = [], cols = 0, cell = 0, gap = 0, W = 0, H = 0, dpr = 1;
+    let cells = [], cols = 0, cell = 0, gap = 0, W = 0, H = 0, dpr = 1, x0 = 0, vc = 0; // x0 = first week shown, vc = weeks shown
     const P = 10; // inner margin so enlarged edge cells and glows aren't clipped
     let visible = false, raf = 0, t0 = performance.now();
     let mx = -1e4, my = -1e4, hovering = false, hoverIdx = -1;
@@ -2048,7 +2048,6 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         new ResizeObserver(layout).observe(cv.parentElement);
         new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }, { rootMargin: '100px' }).observe(cv);
         document.addEventListener('visibilitychange', kick);
-        const wrap = cv.parentElement; wrap.scrollLeft = wrap.scrollWidth; // start on the latest weeks (phones)
         if (window.matchMedia('(hover:hover) and (pointer:fine)').matches) bindHover();
         draw(performance.now());
       })
@@ -2057,7 +2056,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     function layout() {
       const w = cv.clientWidth; if (!w || !cols) return;
       gap = Math.max(3, Math.min(5, w * 0.0035));
-      cell = (w - 2 * P - gap * (cols - 1)) / cols;
+      // fit the card: on narrow screens show only the most recent weeks, with cells no smaller than ~10px
+      vc = Math.max(1, Math.min(cols, Math.floor((w - 2 * P + gap) / (10 + gap)))); x0 = cols - vc;
+      cell = (w - 2 * P - gap * (vc - 1)) / vc;
       W = w; H = Math.round(cell * 7 + gap * 6 + 2 * P);
       cv.style.height = H + 'px';
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -2090,7 +2091,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       const step = cell + gap, R = 160, rad = cell * 0.22; // R = hover spotlight radius (px)
       const lit = [];
       // Spotlight source: the mouse when hovering, otherwise an invisible cursor that wanders the grid.
-      const gw = cols * step - gap, gh = 7 * step - gap;
+      const gw = vc * step - gap, gh = 7 * step - gap;
       let sx = mx, sy = my, on = hovering;
       if (!hovering && !still) {
         sx = (0.5 + 0.48 * Math.sin(t * 0.19 + 1.4 * Math.sin(t * 0.06))) * gw;
@@ -2098,8 +2099,9 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         on = true;
       }
       for (let i = 0; i < cells.length; i++) {
-        const c = cells[i];
-        const cx = c.x * step + cell / 2, cy = c.y * step + cell / 2;
+        const c = cells[i], vx = c.x - x0;
+        if (vx < 0) { heat[i] = 0; continue; }                    // older than what fits
+        const cx = vx * step + cell / 2, cy = c.y * step + cell / 2;
         // hover heat eases in/out so the spotlight feels soft
         let target = 0;
         if (on) { const d = Math.hypot(sx - cx, sy - cy); if (d < R) target = Math.pow(1 - d / R, 1.6); }
@@ -2108,7 +2110,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         if (heat[i] > 0 || c.l > 0) { lit.push(i); continue; } // drawn after, on top
         const col = pal(t / 6 + c.x * 0.018 + c.y * 0.027), a = ALPHA[0];
         ctx.fillStyle = `rgb(${BG[0] + (col[0] - BG[0]) * a | 0},${BG[1] + (col[1] - BG[1]) * a | 0},${BG[2] + (col[2] - BG[2]) * a | 0})`;
-        rrect(c.x * step, c.y * step, cell, rad);
+        rrect(vx * step, c.y * step, cell, rad);
       }
       for (const i of lit) {
         const c = cells[i], hv = heat[i], h = hv;
@@ -2124,7 +2126,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         if (glow > 0.5) ctx.shadowColor = `rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},${Math.min(0.9, 0.35 + pulse * 0.4 + hv * 0.5)})`;
         ctx.shadowBlur = glow > 0.5 ? glow : 0;
         ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
-        rrect(c.x * step - off, c.y * step - off, s, rad * (1 + h * 0.55));
+        rrect((c.x - x0) * step - off, c.y * step - off, s, rad * (1 + h * 0.55));
       }
       ctx.shadowBlur = 0;
     }
@@ -2139,7 +2141,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         const step = cell + gap;
         const x = Math.floor(mx / step), y = Math.floor(my / step);
         const inCell = mx - x * step <= cell + 1 && my - y * step <= cell + 1;
-        const idx = inCell ? cells.findIndex(c => c.x === x && c.y === y) : -1;
+        const idx = inCell && x >= 0 && x < vc ? cells.findIndex(c => c.x === x + x0 && c.y === y) : -1;
         if (idx !== hoverIdx) {
           hoverIdx = idx;
           if (idx >= 0) {
@@ -2150,7 +2152,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         }
         if (idx >= 0) {
           const c = cells[idx], br = box.getBoundingClientRect(), half = tip.offsetWidth / 2;
-          const left = Math.min(Math.max(r.left - br.left + P + c.x * step + cell / 2, half + 8), br.width - half - 8);
+          const left = Math.min(Math.max(r.left - br.left + P + (c.x - x0) * step + cell / 2, half + 8), br.width - half - 8);
           tip.style.left = left + 'px';
           tip.style.top = (r.top - br.top + P + c.y * step) + 'px';
           tip.classList.add('is-on');
@@ -3311,7 +3313,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // html.is-scrolling while the page moves (lets expensive live effects, like the header blur, stand down)
     let scrollIdle = 0;
     const markScrolling = () => { if (!root.classList.contains('is-scrolling')) root.classList.add('is-scrolling'); clearTimeout(scrollIdle); scrollIdle = setTimeout(() => root.classList.remove('is-scrolling'), 150); };
-    lenis.on('scroll', markScrolling);
+    if (matchMedia('(hover:hover) and (pointer:fine)').matches) lenis.on('scroll', markScrolling); // phones keep their glass (swapping it flickers on iOS)
     lenis.on('scroll', (e) => { ScrollTrigger.update(); onScrollNav(e.scroll); });
     const raf = (t) => lenis.raf(t * 1000);
     gsap.ticker.add(raf); gsap.ticker.lagSmoothing(0);
