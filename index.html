@@ -1114,6 +1114,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     raf = requestAnimationFrame(frame);
     if (now - last < 33) return;                       // ~30fps is plenty
     last = now;
+    if (pNew) takePointer();
     var dirty = false;
     if (now - accentT > 1000) { accentT = now; readAccent(); dirty = true; }
     // rain: fade the trail layer, draw new heads
@@ -1175,12 +1176,18 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     var p = heroXY(ev);
     if (eyeAt(p.x, p.y)) { rageUntil = performance.now() + 7000; ptr.x = p.x; ptr.y = p.y; ptr.ok = true; kick(); }
   });
+  var pcx = 0, pcy = 0, pNew = false, pMouse = false, curPtr = '';
   hero.addEventListener('pointermove', function (ev) {
-    if (!on) return;
-    var p = heroXY(ev); ptr.x = p.x; ptr.y = p.y; ptr.ok = true;
-    if (ev.pointerType === 'mouse') hero.style.cursor = eyeAt(p.x, p.y) ? 'pointer' : '';
+    if (!on || !seen) return;
+    pcx = ev.clientX; pcy = ev.clientY; pMouse = ev.pointerType === 'mouse'; pNew = true;   // used in the next frame
   }, { passive: true });
-  hero.addEventListener('pointerleave', function () { hero.style.cursor = ''; });
+  function takePointer() {
+    pNew = false;
+    var r = hero.getBoundingClientRect(); ptr.x = pcx - r.left; ptr.y = pcy - r.top; ptr.ok = true;
+    var want = pMouse && eyeAt(ptr.x, ptr.y) ? 'pointer' : '';
+    if (want !== curPtr) { curPtr = want; hero.style.cursor = want; }
+  }
+  hero.addEventListener('pointerleave', function () { pNew = false; if (curPtr) { curPtr = ''; hero.style.cursor = ''; } });
   new IntersectionObserver(function (es) { seen = es[0].isIntersecting; kick(); }).observe(hero);
   document.addEventListener('visibilitychange', kick);
   var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { layout(); kick(); }, 200); });
@@ -2605,15 +2612,18 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 
     let covered = false; // the easter-egg overlay hides the section: don't animate behind it
     function kick() { if (visible && !covered && !document.hidden && !still && !raf) raf = requestAnimationFrame(frame); }
-    function frame(now) { raf = 0; if (!visible || covered || document.hidden) return; update(now); draw(now); kick(); }
+    function frame(now) { raf = 0; if (!visible || covered || document.hidden) return; if (pNew) takePointer(); update(now); draw(now); kick(); }
     document.addEventListener('egg', (e) => { covered = e.detail; kick(); });
 
-    sec.addEventListener('pointermove', (e) => {
-      const r = cv.getBoundingClientRect(), nx = e.clientX - r.left, ny = e.clientY - r.top;
+    let pcx = 0, pcy = 0, pNew = false;
+    sec.addEventListener('pointermove', (e) => { if (!visible) return; pcx = e.clientX; pcy = e.clientY; pNew = true; }, { passive: true });
+    const takePointer = () => {                                // once per frame, before any drawing
+      pNew = false;
+      const r = cv.getBoundingClientRect(), nx = pcx - r.left, ny = pcy - r.top;
       if (hovering) { wvx = wvx * 0.7 + (nx - mx) * 0.3; wvy = wvy * 0.7 + (ny - my) * 0.3; }
       mx = nx; my = ny; hovering = true;
-    }, { passive: true });
-    sec.addEventListener('pointerleave', () => { hovering = false; mx = my = -1e4; });
+    };
+    sec.addEventListener('pointerleave', () => { pNew = false; hovering = false; mx = my = -1e4; });
     new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }, { rootMargin: '80px' }).observe(sec);
     // arm the assembly when the section's top has passed ~60% up the viewport (or it is mostly on screen)
     const armIO = new IntersectionObserver(([e]) => { if (e.isIntersecting) { armed = true; armIO.disconnect(); kick(); } }, { rootMargin: '0px 0px -40% 0px' });
@@ -2728,6 +2738,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       const ws = cs.map(c => c.getBoundingClientRect().width);
       cs.forEach((c, i) => (c.style.width = ws[i] + 'px'));
       el._fs = parseFloat(getComputedStyle(el).fontSize) || 16;
+      el._pos = null;                 // letter centres are re-measured lazily after a relock
     };
     const split = (el) => {
       if (reduce) return;
@@ -2758,14 +2769,20 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     const apply = () => {
       moveRaf = 0; if (!pending) return;
       const { el, x, y } = pending; pending = null;
-      const r = Math.max(22, el._fs * 0.7), now = performance.now();
-      el.querySelectorAll('.hc').forEach(c => {
-        const b = c.getBoundingClientRect(), dx = x - (b.left + b.width / 2), dy = y - (b.top + b.height / 2);
+      const r = Math.max(22, el._fs * 0.7), now = performance.now(), er = el.getBoundingClientRect();
+      if (!el._pos || Math.abs(er.width - el._pw) > 0.5 || Math.abs(er.height - el._ph) > 0.5) {   // one layout pass, cached
+        const cs = [...el.querySelectorAll('.hc')], pos = new Float32Array(cs.length * 2);
+        cs.forEach((c, i) => { const b = c.getBoundingClientRect(); pos[i * 2] = b.left - er.left + b.width / 2; pos[i * 2 + 1] = b.top - er.top + b.height / 2; });
+        el._cs = cs; el._pos = pos; el._pw = er.width; el._ph = er.height;
+      }
+      const lx = x - er.left, ly = y - er.top, cs = el._cs, pos = el._pos;
+      for (let i = 0; i < cs.length; i++) {
+        const c = cs[i], dx = lx - pos[i * 2], dy = ly - pos[i * 2 + 1];
         if (dx * dx + dy * dy < r * r) {
           if (!live.has(c)) { c.textContent = pick(c.dataset.c); c._t = now; c.classList.add('on'); }
           live.set(c, now + 120 + Math.random() * 200);
         }
-      });
+      }
       if (live.size && !loopRaf) loopRaf = requestAnimationFrame(loop);
     };
     const onMove = (e) => { pending = { el: e.currentTarget, x: e.clientX, y: e.clientY }; if (!moveRaf) moveRaf = requestAnimationFrame(apply); };
@@ -2865,10 +2882,16 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // Pointer: spring-smoothed position; amplitude rises with speed and decays.
     const target = { x: -999, y: -999 }, pos = { x: -999, y: -999 }, vel = { x: 0, y: 0 };
     let amp = 0, lastMove = 0, hasPointer = false;
+    let pcx = 0, pcy = 0, pNew = false;
     const onMove = (e) => {
+      if (!running) return;                                   // off screen: nothing to do
       const now = performance.now(); if (now - lastMove < 16) return; lastMove = now; // throttle
+      pcx = e.clientX; pcy = e.clientY; pNew = true;          // converted in the frame (one measure per frame)
+    };
+    const takePointer = () => {
+      pNew = false;
       const r = canvas.getBoundingClientRect();
-      const x = (e.clientX - r.left) / PX, y = (r.height - (e.clientY - r.top)) / PX;
+      const x = (pcx - r.left) / PX, y = (r.height - (pcy - r.top)) / PX;
       if (!hasPointer) { pos.x = x; pos.y = y; hasPointer = true; }
       target.x = x; target.y = y; amp = Math.min(1, amp + 0.25);
     };
@@ -2880,6 +2903,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     let running = false, visible = true, raf = 0, last = performance.now(), time = 0;
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
+      if (pNew) takePointer();
       const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
       // critically damped spring toward the pointer (response ~0.35s)
       const k = 120, c = 2 * Math.sqrt(k);
