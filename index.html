@@ -668,7 +668,10 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   padding:.65rem 1.05rem;border-radius:999px;background:rgba(12,12,13,.96);border:1px solid var(--line-2);color:var(--bone);
   white-space:nowrap;font-size:.72rem;text-transform:none;
   opacity:0;transform:translate(-50%,140%);pointer-events:none}
-.pull-bar{color:var(--ember);letter-spacing:-.04em}
+.pull-bar{color:var(--ember);letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.pull-bar i{font-style:normal;color:#3a3a40}                       /* not yet decrypted */
+.pull [data-pull-txt] b{font-weight:400;color:var(--ember)}        /* a scrambled letter */
+.pull.glitch [data-pull-txt]{display:inline-block;text-shadow:-2px 0 var(--ember),2px 0 #7dd3fc;transform:translateX(1px) skewX(-8deg)}
 .egg{position:fixed;inset:0;z-index:90;background:#060607;display:grid;place-items:center;text-align:center;overflow:hidden;
   clip-path:circle(0% at 50% 100%);transition:clip-path 450ms var(--ease-in-out)}
 .egg[hidden]{display:none}
@@ -2888,14 +2891,33 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     const atBottom = () => innerHeight + scrollY >= document.documentElement.scrollHeight - 4;
 
     // progress pill follows the pull 1:1 (continuous feedback, not just at the end)
+    // the bar is code: decrypted cells churn through random glyphs, the rest stay dim;
+    // the label itself glitches and scrambles while it decrypts
+    const BAR_G = '01ABCDEF<>/{}[]=#$%*+;:', TXT_G = '!<>-_\/[]{}=+*^?#%$01アイウエオ永遠';
+    const rnd = (s) => s[(Math.random() * s.length) | 0];
+    const escH = (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c);
     const render = () => {
       const n = Math.round(p * BARN);
-      bar.textContent = '[' + '█'.repeat(n) + '░'.repeat(BARN - n) + ']';
-      txt.textContent = p >= 1 ? 'access granted' : p < 0.12 ? 'keep scrolling' : 'decrypting ' + Math.round(p * 100) + '%';
+      let b = '';
+      for (let i = 0; i < n; i++) b += escH(rnd(BAR_G));
+      let u = ''; for (let i = n; i < BARN; i++) u += Math.random() < 0.15 ? escH(rnd(BAR_G)) : '·';
+      bar.innerHTML = '[' + b + '<i>' + u + '</i>]';
+      const label = p >= 1 ? 'access granted' : p < 0.12 ? 'keep scrolling' : 'decrypting ' + Math.round(p * 100) + '%';
+      const heat = p >= 1 ? 0 : 0.08 + p * 0.3;                          // more scramble the deeper it decrypts
+      txt.innerHTML = [...label].map((c) => (c !== ' ' && c !== '%' && Math.random() < heat) ? '<b>' + escH(rnd(TXT_G)) + '</b>' : escH(c)).join('');
+      if (p > 0.12 && p < 1 && Math.random() < 0.18) { pull.classList.add('glitch'); setTimeout(() => pull.classList.remove('glitch'), 70); }
       const k = Math.min(1, p * 3);
       pull.style.opacity = String(k);
       pull.style.transform = `translate(-50%,${(1 - k) * 140}%)`;
     };
+    let churn = 0, churnT = 0;
+    const churnLoop = (now) => {
+      churn = 0;
+      if (p <= 0 || isOpen) return;
+      if (now - churnT > 55) { churnT = now; render(); }
+      churn = requestAnimationFrame(churnLoop);
+    };
+    const startChurn = () => { if (!churn && !reduce) churn = requestAnimationFrame(churnLoop); };
     const decay = () => {
       cancelAnimationFrame(decayRaf);
       const step = () => { p *= 0.86; if (p < 0.004) p = 0; render(); if (p > 0) decayRaf = requestAnimationFrame(step); };
@@ -2905,7 +2927,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       if (isOpen || performance.now() < cool || !atBottom()) return;
       cancelAnimationFrame(decayRaf);
       p = Math.min(1, p + d * (1 - p * 0.35)); // a little resistance as it fills
-      render();
+      render(); startChurn();
       clearTimeout(idle);
       if (p >= 1) { setTimeout(open, 160); return; }
       idle = setTimeout(decay, 550);
