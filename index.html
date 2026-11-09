@@ -951,6 +951,17 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
         chars: new Float32Array(2400).map(Math.random), shuf: 0, spin: Math.random(), dil: Math.random(), tdil: Math.random(), rot: 0.16, flip: false,
         look: 0.06, blinkT: -1, dbl: false, nextBlink: 0, nextLook: 0, glow: [0, 0, 0, 0], rt: 0 });
     }
+    // and one right beside the top of "Jan"
+    (function () {
+      var ww = Math.min(base * 0.95, leftX * 0.5), wh = ww * 0.62, cx2 = leftX * 0.8, cy2 = bot + (low - bot) * 0.05;
+      if (cx2 - ww / 2 < 8) return;
+      // this spot was asked for: any grid eye that would overlap it gives way
+      eyes = eyes.filter(function (q) { return !(Math.abs(q.x + q.w / 2 - cx2) < (q.w + ww) / 2 + 10 && Math.abs(q.y + q.h / 2 - cy2) < (q.h + wh) / 2 + 8); });
+      var c2 = document.createElement('canvas'); c2.width = Math.ceil(ww * ER); c2.height = Math.ceil(wh * ER);
+      eyes.push({ x: cx2 - ww / 2, y: cy2 - wh / 2, w: ww, h: wh, cv: c2, ctx: c2.getContext('2d'), o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0,
+        chars: new Float32Array(2400).map(Math.random), shuf: 0, spin: Math.random(), dil: Math.random(), tdil: Math.random(), rot: -0.14, flip: true,
+        look: -0.05, blinkT: -1, dbl: false, nextBlink: 0, nextLook: 0, glow: [0, 0, 0, 0], rt: 0 });
+    })();
     cols = [];
     for (var x = 8; x < endX; x += 16) cols.push({ x: x, y: top + Math.random() * h, v: 0.45 + Math.random() * 0.6, max: x < leftX ? low : bot });
     readAccent(); eyes.forEach(renderEye); paint();
