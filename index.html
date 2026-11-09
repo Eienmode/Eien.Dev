@@ -272,7 +272,7 @@ section{position:relative}
 .caret{display:inline-block;width:.55em;height:1em;background:var(--ember);margin-left:.35rem;vertical-align:-.15em;animation:blink 1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
 /* hacker glitch */
-.tk-word{position:relative;display:inline-block}
+.tk-word{position:relative;display:inline-block;contain:layout style paint} /* a glitching word repaints only itself */
 .tk-word .g{color:var(--ember);-webkit-text-stroke:0;opacity:.85}
 .tk-word::before,.tk-word::after{content:attr(data-text);position:absolute;inset:0;pointer-events:none;opacity:0}
 .is-glitch .tk-word::before{opacity:1;color:var(--ember);animation:glitchA 320ms steps(1) both}
@@ -3337,22 +3337,26 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       const a = groups[0].querySelectorAll('.tk-item'), b = groups[1].querySelectorAll('.tk-item');
       return [...a].map((el, i) => [el, b[i]]);
     });
-    const busy = new WeakSet();
+    const busy = new WeakSet(); let running = 0;
     const decode = (pair, dur = 650) => {
-      if (busy.has(pair)) return; busy.add(pair);
+      if (busy.has(pair)) return;
+      if (running >= 4) { setTimeout(() => decode(pair, dur), 120); return; }   // never more than 4 words rewriting at once
+      busy.add(pair); running++;
       const words = pair.map(el => el.querySelector('.tk-word'));
       const final = words[0].dataset.text;
       pair.forEach(el => el.classList.add('is-glitch'));
       setTimeout(() => pair.forEach(el => el.classList.remove('is-glitch')), 330);
-      const t0 = performance.now();
+      const t0 = performance.now(); let lastW = 0;
       const frame = (now) => {
+        if (now - lastW < 50 && now - t0 < dur) { requestAnimationFrame(frame); return; }   // ~20 rewrites/s: same look, a third of the work
+        lastW = now;
         const p = Math.min(1, (now - t0) / dur);
         const shown = Math.floor(p * final.length);
         const html = [...final].map((ch, i) => (i < shown || ch === ' ') ? esc(ch)
           : '<span class="g">' + esc(GLYPHS[(Math.random() * GLYPHS.length) | 0]) + '</span>').join('');
         words.forEach(w => (w.innerHTML = html));
         if (p < 1) requestAnimationFrame(frame);
-        else { words.forEach(w => { w.textContent = final; HS.split(w); }); busy.delete(pair); }
+        else { words.forEach(w => { w.textContent = final; HS.split(w); }); busy.delete(pair); running--; }
       };
       requestAnimationFrame(frame);
     };
