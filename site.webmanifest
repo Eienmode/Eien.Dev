@@ -1,9 +1,9 @@
 {
   "name": "eien.dev — Jan Saquilayan",
   "short_name": "eien.dev",
-  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }],
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }],
   "theme_color": "#0c0c0d",
   "background_color": "#0c0c0d",
   "display": "standalone",
-  "start_url": "/"
+  "start_url": "./"
 }
