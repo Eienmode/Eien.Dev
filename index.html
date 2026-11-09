@@ -679,7 +679,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
 /* closing: a GPU-only fade + settle instead of re-clipping a full-screen layer every frame */
 .egg.is-closing{clip-path:none;opacity:0;transform:scale(1.015);transition:opacity 520ms cubic-bezier(0.4,0,0.2,1),transform 520ms cubic-bezier(0.4,0,0.2,1);will-change:opacity,transform;pointer-events:none}
 .egg-rain{position:absolute;inset:0;width:100%;height:100%;opacity:.5}
-.egg-lens{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}  /* the cursor's decryption lens */
+.egg-lens{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}  /* the rain under the cursor, highlighted */
 .egg-scan{position:absolute;inset:0;pointer-events:none;
   background:repeating-linear-gradient(to bottom,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),
              radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,.75) 100%)}
@@ -3014,70 +3014,49 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       cols = Array.from({ length: Math.ceil(innerWidth / cw) }, () => Math.random() * -innerHeight / cw);
       g.fillStyle = '#060607'; g.fillRect(0, 0, innerWidth, innerHeight);
     };
-    const RAIN = '01ABCDEF<>/{}#$%*+=' + CJK, QUOTE = '唯有变化永恒';
-    // the cursor is a decryption lens: rain passing through it speeds up, turns bright and resolves into the
-    // quote's own characters; a scanner ring + hex readout follows the pointer, motion leaves a wake of glyphs
+    const RAIN = '01ABCDEF<>/{}#$%*+=' + CJK;
+    // hover highlight: the rain under the cursor lights up (brightest at the centre, fading out softly).
+    // Each column remembers its last few glyphs; the ones near the pointer are redrawn bright on an overlay.
     const lens = egg.querySelector('[data-egg-lens]'), lg = lens.getContext('2d');
-    const ms = { x: -9999, y: -9999, sx: -9999, sy: -9999, on: false, px: 0, py: 0 }, wake = [];
-    let ldpr = 1, LR = 120;
-    const sizeLens = () => { ldpr = Math.min(2, devicePixelRatio || 1); lens.width = innerWidth * ldpr; lens.height = innerHeight * ldpr; LR = Math.max(90, Math.min(150, innerWidth * 0.08)); };
-    egg.addEventListener('pointermove', (ev) => {
-      ms.x = ev.clientX; ms.y = ev.clientY;
-      if (!ms.on) { ms.sx = ms.x; ms.sy = ms.y; ms.on = true; }
-      const dx = ms.x - ms.px, dy = ms.y - ms.py;
-      if (dx * dx + dy * dy > 160 && wake.length < 80) { wake.push({ x: ms.x, y: ms.y, ch: RAIN[(Math.random() * RAIN.length) | 0], l: 1, vy: -0.3 - Math.random() * 0.6 }); ms.px = ms.x; ms.py = ms.y; }
-    }, { passive: true });
+    const ms = { x: -9999, y: -9999, sx: -9999, sy: -9999, on: false }, TRAIL = 16;
+    let ldpr = 1, LR = 150, trails = [];
+    const sizeLens = () => { ldpr = Math.min(2, devicePixelRatio || 1); lens.width = innerWidth * ldpr; lens.height = innerHeight * ldpr; LR = Math.max(110, Math.min(190, innerWidth * 0.1)); };
+    egg.addEventListener('pointermove', (ev) => { ms.x = ev.clientX; ms.y = ev.clientY; if (!ms.on) { ms.sx = ms.x; ms.sy = ms.y; ms.on = true; } }, { passive: true });
     egg.addEventListener('pointerleave', () => { ms.on = false; });
-    const drawLens = (now) => {
+    const drawLens = () => {
       lg.setTransform(ldpr, 0, 0, ldpr, 0, 0); lg.clearRect(0, 0, innerWidth, innerHeight);
-      // wake: glyphs drift up and fade
-      lg.font = `500 ${cw}px "Geist Mono", ui-monospace, monospace`; lg.textAlign = 'center'; lg.textBaseline = 'middle';
-      for (let i = wake.length - 1; i >= 0; i--) {
-        const w = wake[i]; w.l -= 0.035; w.y += w.vy; if (w.l <= 0) { wake.splice(i, 1); continue; }
-        lg.globalAlpha = w.l * 0.85; lg.fillStyle = w.l > 0.75 ? '#ffffff' : accent.hex; lg.fillText(w.ch, w.x, w.y);
+      if (!ms.on) return;
+      ms.sx += (ms.x - ms.sx) * 0.25; ms.sy += (ms.y - ms.sy) * 0.25;
+      const x0 = ms.sx, y0 = ms.sy, R2 = LR * LR;
+      lg.font = `500 ${cw - 2}px "Geist Mono", ui-monospace, monospace`;
+      const c0 = Math.max(0, Math.floor((x0 - LR) / cw)), c1 = Math.min(trails.length - 1, Math.ceil((x0 + LR) / cw));
+      for (let i = c0; i <= c1; i++) {
+        const t = trails[i]; if (!t) continue;
+        const dx = i * cw - x0;
+        for (let k = 0; k < t.length; k++) {
+          const s = t[k], dy = s.y - y0, d2 = dx * dx + dy * dy;
+          if (d2 > R2) continue;
+          const f = 1 - Math.sqrt(d2) / LR, age = 1 - k / TRAIL;          // k = 0 is the newest (the head)
+          lg.globalAlpha = f * f * (0.35 + 0.65 * age);
+          lg.fillStyle = k === 0 ? '#ffffff' : accent.hex;
+          lg.fillText(s.ch, i * cw, s.y);
+        }
       }
-      if (!ms.on) { lg.globalAlpha = 1; return; }
-      ms.sx += (ms.x - ms.sx) * 0.22; ms.sy += (ms.y - ms.sy) * 0.22;          // the ring trails the cursor softly
-      const x = ms.sx, y = ms.sy, rot = now / 2400;
-      // soft lens glow
-      const gl = lg.createRadialGradient(x, y, 0, x, y, LR);
-      gl.addColorStop(0, 'rgba(255,255,255,0.05)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
-      lg.globalAlpha = 1; lg.fillStyle = gl; lg.beginPath(); lg.arc(x, y, LR, 0, 6.2832); lg.fill();
-      // scanner ring: two thin arcs with gaps, rotating opposite ways, plus ticks
-      lg.strokeStyle = accent.hex; lg.lineWidth = 1;
-      lg.globalAlpha = 0.6;
-      for (let k = 0; k < 4; k++) { const a = rot + k * Math.PI / 2; lg.beginPath(); lg.arc(x, y, LR, a + 0.12, a + Math.PI / 2 - 0.12); lg.stroke(); }
-      lg.globalAlpha = 0.35;
-      for (let k = 0; k < 3; k++) { const a = -rot * 1.6 + k * 2.094; lg.beginPath(); lg.arc(x, y, LR - 9, a, a + 1.4); lg.stroke(); }
-      lg.globalAlpha = 0.55;
-      for (let k = 0; k < 24; k++) { const a = rot * 0.5 + k * 0.2618, r1 = LR + 4, r2 = LR + (k % 6 === 0 ? 12 : 7); lg.beginPath(); lg.moveTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1); lg.lineTo(x + Math.cos(a) * r2, y + Math.sin(a) * r2); lg.stroke(); }
-      // crosshair
-      lg.globalAlpha = 0.8; lg.beginPath(); lg.moveTo(x - 7, y); lg.lineTo(x - 2, y); lg.moveTo(x + 2, y); lg.lineTo(x + 7, y); lg.moveTo(x, y - 7); lg.lineTo(x, y - 2); lg.moveTo(x, y + 2); lg.lineTo(x, y + 7); lg.stroke();
-      // hex readout
-      lg.globalAlpha = 0.75; lg.fillStyle = accent.hex; lg.textAlign = 'left'; lg.font = '500 10px "Geist Mono", ui-monospace, monospace';
-      const hx = (n) => '0x' + Math.max(0, Math.round(n)).toString(16).toUpperCase().padStart(4, '0');
-      lg.fillText(hx(ms.x) + ' · ' + hx(ms.y), x + LR * 0.72 + 8, y - LR * 0.72);
-      lg.globalAlpha = 0.45; lg.fillText('decrypting', x + LR * 0.72 + 8, y - LR * 0.72 + 13);
       lg.globalAlpha = 1;
     };
     const rain = (now) => {
       rainRaf = requestAnimationFrame(rain);
-      drawLens(now);                                      // the lens is smooth (every frame)
+      drawLens();                                         // the highlight follows the cursor every frame
       if (now - last < 40) return; last = now;          // ~25fps is plenty for rain
       g.fillStyle = 'rgba(6,6,7,0.14)'; g.fillRect(0, 0, innerWidth, innerHeight);
       g.font = `500 ${cw - 2}px "Geist Mono", ui-monospace, monospace`;
-      const lx = ms.on ? ms.sx : -9999, ly = ms.on ? ms.sy : -9999, R2 = LR * LR;
+      if (trails.length !== cols.length) trails = cols.map(() => []);
       for (let i = 0; i < cols.length; i++) {
-        const y = cols[i] * cw, x = i * cw, dx = x - lx, dy = y - ly, inLens = dx * dx + dy * dy < R2;
-        if (inLens) {                                     // decrypted: bright quote glyphs, falling faster
-          g.fillStyle = Math.random() < 0.5 ? '#ffffff' : accent.hex;
-          g.fillText(QUOTE[(Math.random() * QUOTE.length) | 0], x, y);
-          cols[i] += 2;
-        } else {
-          g.fillStyle = Math.random() < 0.08 ? '#ffffff' : accent.hex;
-          g.fillText(RAIN[(Math.random() * RAIN.length) | 0], x, y);
-          cols[i] = y > innerHeight && Math.random() > 0.975 ? 0 : cols[i] + 1;
-        }
+        const y = cols[i] * cw, ch = RAIN[(Math.random() * RAIN.length) | 0];
+        g.fillStyle = Math.random() < 0.08 ? '#ffffff' : accent.hex;
+        g.fillText(ch, i * cw, y);
+        const t = trails[i]; t.unshift({ y, ch }); if (t.length > TRAIL) t.pop();
+        if (y > innerHeight && Math.random() > 0.975) { cols[i] = 0; t.length = 0; } else cols[i] = cols[i] + 1;
       }
     };
 
@@ -3115,7 +3094,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     function close() {
       if (!isOpen) return; isOpen = false;
       clearInterval(glitchId); clearInterval(ambientId); cool = performance.now() + 900;
-      cancelAnimationFrame(rainRaf); removeEventListener('resize', sizeRain); removeEventListener('resize', sizeLens); ms.on = false; wake.length = 0; // freeze the rain while it fades
+      cancelAnimationFrame(rainRaf); removeEventListener('resize', sizeRain); removeEventListener('resize', sizeLens); ms.on = false; trails = []; lg.clearRect(0, 0, lens.width, lens.height); // freeze the rain while it fades
       egg.classList.add('is-closing'); egg.classList.remove('burst');
       document.body.style.overflow = ''; lenis && lenis.start();
       document.dispatchEvent(new CustomEvent('egg', { detail: false }));
