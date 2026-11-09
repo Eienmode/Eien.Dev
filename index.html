@@ -914,18 +914,30 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     mg.lineTo(leftX, bot - 10); mg.lineTo(leftX * 0.25, low); mg.lineTo(-60, low);            // the left wedge
     mg.closePath(); mg.fill();
     mg.filter = 'none';
-    // several small eyes, placed at random inside the rain area (tested against the rain mask), never overlapping
+    // several small eyes, evenly spaced on a jittered grid inside the rain area, kept clear of the dot field,
+    // the most central slots win. Each gets its own pose: level / tilted / slanted, left or right eye.
     var md = mg.getImageData(0, 0, W, H).data;
     var inMask = function (x, y) { x |= 0; y |= 0; return x < 0 || y < 0 || x >= W || y >= H ? 0 : md[(y * W + x) * 4 + 3]; };
+    var sc = Math.max(0.75, Math.min(1.3, W / 1700)), base = 120 * sc, gapX = base * 1.75, gapY = base * 0.95;
+    var dotsX = W * 0.5;                                                   // the waving dots live right of this
+    var slots = [], sx0 = 0, sy0 = 0, cnt = 0;
+    for (var gy0 = top + gapY * 0.6, row = 0; gy0 < low - gapY * 0.4; gy0 += gapY, row++)
+      for (var gx0 = gapX * 0.55 + (row % 2) * gapX * 0.5; gx0 < dotsX - base * 0.6; gx0 += gapX) {
+        var ex = gx0 + (Math.random() - 0.5) * gapX * 0.18, ey = gy0 + (Math.random() - 0.5) * gapY * 0.18;
+        if (inMask(ex, ey) < 225 || inMask(ex - base * 0.55, ey) < 170 || inMask(ex + base * 0.55, ey) < 170 || inMask(ex, ey - base * 0.3) < 170 || inMask(ex, ey + base * 0.3) < 170) continue;
+        slots.push({ x: ex, y: ey }); sx0 += ex; sy0 += ey; cnt++;
+      }
+    if (cnt) { sx0 /= cnt; sy0 /= cnt; }
+    slots.sort(function (p, q) { return Math.hypot(p.x - sx0, (p.y - sy0) * 1.6) - Math.hypot(q.x - sx0, (q.y - sy0) * 1.6); });
+    var want = Math.min(slots.length, Math.max(3, Math.min(8, Math.round((W * 0.5) * (low - top) / 110000))));
+    var POSES = [0, 0, -0.18, 0.18, -0.34, 0.34, -0.1, 0.1];
     eyes = [];
-    var want = Math.max(3, Math.min(9, Math.round((W * 0.62) * (low - top) / 95000))), sc = Math.max(0.75, Math.min(1.3, W / 1700));
-    for (var tries = 0; tries < 500 && eyes.length < want; tries++) {
-      var ew = (70 + Math.random() * 95) * sc, eh = ew * 0.5, ex = Math.random() * W * 0.62, ey = top + Math.random() * (low - top);
-      if (inMask(ex, ey) < 200 || inMask(ex - ew * 0.45, ey) < 120 || inMask(ex + ew * 0.45, ey) < 120 || inMask(ex, ey - eh * 0.45) < 120 || inMask(ex, ey + eh * 0.45) < 120) continue;
-      var clash = eyes.some(function (e) { return Math.abs(e.x + e.w / 2 - ex) < (e.w + ew) / 2 + 22 && Math.abs(e.y + e.h / 2 - ey) < (e.h + eh) / 2 + 18; });
-      if (clash) continue;
+    for (var si = 0; si < want; si++) {
+      var ew = base * (0.88 + Math.random() * 0.24), eh = ew * 0.5, s0 = slots[si];
       var ecv = document.createElement('canvas'); ecv.width = Math.ceil(ew); ecv.height = Math.ceil(eh);
-      eyes.push({ x: ex - ew / 2, y: ey - eh / 2, w: ew, h: eh, cv: ecv, ctx: ecv.getContext('2d'), o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0, dil: Math.random(), tdil: Math.random(),
+      eyes.push({ x: s0.x - ew / 2, y: s0.y - eh / 2, w: ew, h: eh, cv: ecv, ctx: ecv.getContext('2d'), o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0,
+        dil: Math.random(), tdil: Math.random(), rot: POSES[si % POSES.length] + (Math.random() - 0.5) * 0.08, flip: Math.random() < 0.5,
+        look: (Math.random() - 0.5) * 0.16,                                 // each has its own resting gaze direction
         blinkT: -1, dbl: false, nextBlink: 0, nextLook: 0, glow: [0, 0, 0, 0], rt: 0 });
     }
     cols = [];
@@ -957,10 +969,10 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   function renderEye(e) {
     var C = e.w, Rr = e.h, o = e.o, x2 = e.ctx;
     var Pin = [0.05 * C, 0.6 * Rr], Pout = [0.97 * C, 0.36 * Rr], uy = 0.02 * Rr + (0.9 * Rr - 0.02 * Rr) * (1 - o), ly = 1.02 * Rr;
-    var ix = 0.52 * C + e.gx, iy = 0.58 * Rr + e.gy, R0 = 0.23 * C, pupil = 0.12 + 0.07 * e.dil;
+    var ix = (0.52 + e.look) * C + e.gx, iy = 0.58 * Rr + e.gy, R0 = 0.23 * C, pupil = 0.12 + 0.07 * e.dil;
     var dark = mix(BLACK, accent, 0.25), deep = mix(BLACK, accent, 0.5), light = mix(accent, WHITE, 0.5);
     x2.setTransform(1, 0, 0, 1, 0, 0); x2.clearRect(0, 0, e.cv.width, e.cv.height);
-    x2.save(); x2.translate(C, 0); x2.scale(-1, 1);
+    x2.save(); if (e.flip) { x2.translate(C, 0); x2.scale(-1, 1); }
     function opening() { x2.beginPath(); x2.moveTo(Pin[0], Pin[1]); x2.quadraticCurveTo(0.5 * C, uy, Pout[0], Pout[1]); x2.quadraticCurveTo(0.55 * C, ly, Pin[0], Pin[1]); x2.closePath(); }
     opening(); x2.fillStyle = 'rgba(214,208,224,0.10)'; x2.fill();
     x2.save(); opening(); x2.clip();
@@ -994,7 +1006,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     x2.save(); x2.globalCompositeOperation = 'destination-in'; x2.translate(C / 2, Rr * 0.55); x2.scale(1, Rr / C * 1.25);
     var fade = x2.createRadialGradient(0, 0, C * 0.2, 0, 0, C * 0.53); fade.addColorStop(0, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,0)');
     x2.fillStyle = fade; x2.fillRect(-C, -C, C * 2, C * 2); x2.restore();
-    e.px = e.x + (C - ix); e.py = e.y + iy; e.pr = R0 * pupil;
+    e.lx = e.flip ? C - ix : ix; e.ly = iy; e.pr = R0 * pupil; e.px = 1;
     var hue = hueOf(accent); e.pg = (hue < 20 || hue > 340) ? '255,110,199' : '255,40,70';
     COMP = hslRgb((hue + 180) % 360, 0.95, 0.6);
   }
@@ -1010,14 +1022,16 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     g.globalCompositeOperation = 'source-over';
     for (var n = 0; n < eyes.length; n++) {
       var e = eyes[n];
-      g.globalAlpha = 0.62; g.drawImage(e.cv, e.x, e.y);                 // dimmed: they sit behind the page
+      g.save(); g.translate(e.x + e.w / 2, e.y + e.h / 2); g.rotate(e.rot);
+      g.globalAlpha = 0.62; g.drawImage(e.cv, -e.w / 2, -e.h / 2);         // dimmed: they sit behind the page
       if (e.px && e.o > 0.15) {
-        var pulse = 0.8 + 0.2 * Math.sin(performance.now() / 700 + n), R = e.pr * 3.2;
-        var pg = g.createRadialGradient(e.px, e.py, e.pr * 0.4, e.px, e.py, R);
+        var lx = e.lx - e.w / 2, ly = e.ly - e.h / 2, pulse = 0.8 + 0.2 * Math.sin(performance.now() / 700 + n), R = e.pr * 3.2;
+        var pg = g.createRadialGradient(lx, ly, e.pr * 0.4, lx, ly, R);
         pg.addColorStop(0, 'rgba(' + e.pg + ',' + (0.85 * pulse * e.o) + ')'); pg.addColorStop(0.35, 'rgba(' + e.pg + ',' + (0.35 * pulse * e.o) + ')'); pg.addColorStop(1, 'rgba(' + e.pg + ',0)');
-        g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1; g.fillStyle = pg; g.fillRect(e.px - R, e.py - R, R * 2, R * 2);
+        g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1; g.fillStyle = pg; g.fillRect(lx - R, ly - R, R * 2, R * 2);
         g.globalCompositeOperation = 'source-over';
       }
+      g.restore();
     }
     g.globalAlpha = 1;
   }
