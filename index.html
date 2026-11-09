@@ -948,60 +948,52 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   var SETS = { lid: '#%&@$', plate: '#%&$@=', edge: '^/\\', lower: '_=~', ring: '#[]{}', iris: '01ABCDEF<>{}=', core: '*+x%', slit: '@#%', hl: '+*' };
   var GOLD_HOT, GOLD, AMBER, EMBER, CHAR = [30, 28, 30], CHAR2 = [58, 54, 56]; // 'hot' tones derived from the live accent each render
   var glowC = document.createElement('canvas'), gg = glowC.getContext('2d'), glowB = document.createElement('canvas'), gb = glowB.getContext('2d');
+  // ---- the eye: a smooth drawn eye (not glyphs) - ringed iris, soft lids, faded border, sits "behind" the page.
+  //      Defined as a left eye and mirrored, so it reads as the RIGHT eye.
+  function hueOf(c) { var r = c[0] / 255, g2 = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g2, b), mn = Math.min(r, g2, b), d = mx - mn;
+    if (!d) return 0; var hh = mx === r ? ((g2 - b) / d) % 6 : mx === g2 ? (b - r) / d + 2 : (r - g2) / d + 4; return (hh * 60 + 360) % 360; }
   function renderEye() {
     if (!eye) return;
-    AMBER = accent; GOLD = [accent[0] + (255 - accent[0]) * 0.35, accent[1] + (255 - accent[1]) * 0.35, accent[2] + (255 - accent[2]) * 0.35];
-    GOLD_HOT = [accent[0] + (255 - accent[0]) * 0.8, accent[1] + (255 - accent[1]) * 0.8, accent[2] + (255 - accent[2]) * 0.8]; EMBER = [accent[0] * 0.4, accent[1] * 0.4, accent[2] * 0.4];
-    var C = eye.cols, Rr = eye.rows, cell = eye.cell, o = eye.o;
-    // ringed eye: calm, half-lidded almond; the upper lid rests over the top of a large ringed iris
-    var Pin = [0.05 * C, 0.6 * Rr], Pout = [0.97 * C, 0.36 * Rr];
-    var uy = 0.02 * Rr + (0.9 * Rr - 0.02 * Rr) * (1 - o);
-    var U = yAt(Pin, [0.5 * C, uy], Pout), L = yAt(Pin, [0.55 * C, 1.02 * Rr], Pout);
-    var B = yAt([0.0 * C, 0.42 * Rr], [0.45 * C, 0.02 * Rr], [1.0 * C, 0.10 * Rr]);   // top of the brow armour
-    // the curves only depend on x: evaluate them once per column instead of once per cell
-    var cU = new Float32Array(C), cL = new Float32Array(C), cB = new Float32Array(C);
-    for (var q = 0; q < C; q++) { var xq = C - (q + 0.5); cU[q] = U(xq); cL[q] = L(xq); cB[q] = B(xq); }
-    var ix = 0.52 * C - eye.gx, iy = 0.58 * Rr + eye.gy, R0 = 0.23 * C;
-    var pupil = 0.1 + 0.07 * eye.dil;                                     // pupil + ring spacing breathe as it looks around
-    var lashes = [];
-    [0.72, 0.8, 0.88, 0.95].forEach(function (t, n) { var p = bez(Pin, [0.5 * C, uy], Pout, t); lashes.push([p[0], p[1] - 0.6, p[0] + 1.4 + n * 0.7, p[1] - 2.6 - n * 0.5]); });
-    eg.clearRect(0, 0, C * cell, Rr * cell);
-    gw = C * cell; gh = Rr * cell;
-    if (glowC.width !== Math.ceil(gw / 4)) { glowC.width = Math.ceil(gw / 4); glowC.height = Math.ceil(gh / 4); }
-    gg.clearRect(0, 0, glowC.width, glowC.height);
-    eg.font = '600 ' + Math.round(cell * 1.08) + 'px "Geist Mono", ui-monospace, monospace'; eg.textAlign = 'center'; eg.textBaseline = 'middle';
-    for (var r = 0; r < Rr; r++) for (var c = 0; c < C; c++) {
-      var xs = c + 0.5, y = r + 0.5, x = C - xs;
-      var kind = null, col = null, a = 1;
-      var u = cU[c], l = cL[c], inX = x > Pin[0] && x < Pout[0], tt = Math.max(0, Math.min(1, (x - Pin[0]) / (Pout[0] - Pin[0])));
-      var lw = 0.9 + 1.1 * tt;
-      if (false) {}
-      else if (inX && y <= u + 0.35 && y > u - lw) { kind = 'lid'; col = mix(EMBER, GOLD, 0.5 + 0.4 * tt); }
-      else if (lashes.some(function (s) { return segD(x, y, s[0], s[1], s[2], s[3]) < 0.5; })) { kind = 'lid'; col = mix(EMBER, GOLD, 0.7); }
-      else if (x >= Pout[0] - 0.5 && x < Pout[0] + 3.4 && Math.abs(y - (Pout[1] - (x - Pout[0]) * 0.45)) < 0.8) { kind = 'lid'; col = mix(CHAR2, GOLD, 0.6); }
-      if (!kind && inX && y > u && y < l) {
-        var dx = x - ix, dy = y - iy, d = Math.hypot(dx, dy) / R0;
-        if (Math.hypot(x - (ix + 0.08 * C), y - (iy - 0.3 * R0)) < 0.022 * C) { kind = 'hl'; col = '#ffffff'; }   // small catch-light
-        else if (d < pupil) { kind = 'slit'; col = 'rgb(14,8,16)'; }
-        else if (d > 0.94) { kind = 'ring'; col = mix(BLACK, accent, 0.3); }                                   // dark outer rim
-        else if (d < 1) {
-          // concentric rings: alternating light bands and dark rings, brightest near the pupil
-          var band = (d - pupil) / (0.94 - pupil) * 3.4, f = band - Math.floor(band);
-          if (f < 0.3) { kind = 'ring'; col = mix(BLACK, accent, 0.3); }
-          else { kind = 'iris'; col = mix(accent, WHITE, Math.max(0.05, 0.5 - d * 0.4)); }
-        } else { kind = 'lower'; col = mix(CHAR2, GOLD, 0.15); a = 0.55; }                                  // white of the eye, dim
-        if (y < u + 0.8 && kind !== 'slit') { col = mix(EMBER, AMBER, 0.4); kind = 'ring'; }                 // lid shadow
-      }
-      if (!kind && inX && x > Pin[0] + 0.06 * C && x < Pout[0] - 0.04 * C && Math.abs(y - l) < 0.55) { kind = 'lower'; col = mix(CHAR2, GOLD, 0.3); }
-      if (!kind) continue;
-      var set = SETS[kind], ch = set[Math.floor(eye.chars[r * C + c] * set.length) % set.length];
-      eg.globalAlpha = a; eg.fillStyle = col; eg.fillText(ch, xs * cell, y * cell);
-    }
-    eg.globalAlpha = 1;
-    // soft bloom: blur the quarter-res glow map once per render (not per frame)
-    if (glowB.width !== glowC.width + 16) { glowB.width = glowC.width + 16; glowB.height = glowC.height + 16; }
-    gb.clearRect(0, 0, glowB.width, glowB.height);
-
+    var C = eye.cols, Rr = eye.rows, cell = eye.cell, o = eye.o, Wp = C * cell, Hp = Rr * cell;
+    var Pin = [0.05 * C, 0.6 * Rr], Pout = [0.97 * C, 0.36 * Rr], uy = 0.02 * Rr + (0.9 * Rr - 0.02 * Rr) * (1 - o), ly = 1.02 * Rr;
+    var ix = 0.52 * C + eye.gx, iy = 0.58 * Rr + eye.gy, R0 = 0.23 * C, pupil = 0.1 + 0.07 * eye.dil;
+    var dark = mix(BLACK, accent, 0.28), deep = mix(BLACK, accent, 0.5), light = mix(accent, WHITE, 0.5);
+    eg.setTransform(dpr, 0, 0, dpr, 0, 0); eg.clearRect(0, 0, Wp, Hp);
+    eg.save();
+    eg.translate(Wp, 0); eg.scale(-cell, cell);                       // mirror + work in cell units
+    function opening() { eg.beginPath(); eg.moveTo(Pin[0], Pin[1]); eg.quadraticCurveTo(0.5 * C, uy, Pout[0], Pout[1]); eg.quadraticCurveTo(0.55 * C, ly, Pin[0], Pin[1]); eg.closePath(); }
+    eg.filter = 'blur(0.5px)';                                          // a touch soft: it sits behind the page
+    opening(); eg.fillStyle = 'rgba(214,208,224,0.10)'; eg.fill();      // faint white of the eye
+    eg.save(); opening(); eg.clip();
+    // iris: radial gradient + concentric rings
+    var gr = eg.createRadialGradient(ix, iy, 0, ix, iy, R0);
+    gr.addColorStop(0, light); gr.addColorStop(0.55, 'rgb(' + accent.join(',') + ')'); gr.addColorStop(1, deep);
+    eg.fillStyle = gr; eg.beginPath(); eg.arc(ix, iy, R0, 0, 6.2832); eg.fill();
+    eg.strokeStyle = dark; eg.globalAlpha = 0.75;
+    for (var k = 1; k <= 4; k++) { eg.lineWidth = R0 * 0.045; eg.beginPath(); eg.arc(ix, iy, R0 * (pupil + (0.94 - pupil) * k / 4.3), 0, 6.2832); eg.stroke(); }
+    eg.globalAlpha = 1; eg.lineWidth = R0 * 0.07; eg.beginPath(); eg.arc(ix, iy, R0 * 0.97, 0, 6.2832); eg.stroke();
+    eg.fillStyle = '#0b0710'; eg.beginPath(); eg.arc(ix, iy, R0 * pupil, 0, 6.2832); eg.fill();
+    eg.fillStyle = 'rgba(255,255,255,.8)'; eg.beginPath(); eg.arc(ix + 0.08 * C, iy - 0.3 * R0, 0.022 * C, 0, 6.2832); eg.fill();
+    // lid shadow falling on the eye
+    var sh = eg.createLinearGradient(0, Math.min(Pin[1], Pout[1]) - 2, 0, iy); sh.addColorStop(0, 'rgba(8,6,10,.75)'); sh.addColorStop(1, 'rgba(8,6,10,0)');
+    eg.fillStyle = sh; eg.fillRect(0, 0, C, Rr);
+    eg.restore();
+    // upper lid line (heavier toward the outer corner) + lashes, faint lower lid
+    eg.lineCap = 'round'; eg.strokeStyle = deep;
+    for (var s = 0; s < 3; s++) { eg.lineWidth = 0.7 + s * 0.45; eg.globalAlpha = 0.55 + s * 0.15;
+      eg.beginPath(); eg.moveTo(Pin[0] + C * 0.1 * s, Pin[1] - 0.2 * s); eg.quadraticCurveTo(0.5 * C, uy - 0.2 * s, Pout[0], Pout[1]); eg.stroke(); }
+    eg.globalAlpha = 0.85; eg.lineWidth = 0.7;
+    [0.72, 0.8, 0.88, 0.95].forEach(function (t, n) { var p = bez(Pin, [0.5 * C, uy], Pout, t); eg.beginPath(); eg.moveTo(p[0], p[1]); eg.quadraticCurveTo(p[0] + 1 + n * 0.5, p[1] - 1.4, p[0] + 1.8 + n * 0.8, p[1] - 2.6 - n * 0.4); eg.stroke(); });
+    eg.globalAlpha = 0.35; eg.lineWidth = 0.5; eg.beginPath(); eg.moveTo(Pin[0] + 0.1 * C, Pin[1] + 0.3); eg.quadraticCurveTo(0.55 * C, ly - 0.4, Pout[0] - 0.06 * C, Pout[1] + 0.6); eg.stroke();
+    eg.globalAlpha = 1; eg.filter = 'none';
+    eg.restore();
+    // faded border: the whole eye dissolves into the background toward its edges
+    eg.save(); eg.globalCompositeOperation = 'destination-in'; eg.translate(Wp / 2, Hp * 0.55); eg.scale(1, Hp / Wp * 1.25);
+    var fade = eg.createRadialGradient(0, 0, Wp * 0.18, 0, 0, Wp * 0.52); fade.addColorStop(0, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,0)');
+    eg.fillStyle = fade; eg.fillRect(-Wp, -Wp, Wp * 2, Wp * 2); eg.restore();
+    // where the pupil is (page px), for the glow drawn every frame in paint()
+    eye.px = eye.x + (C - ix) * cell; eye.py = eye.y + iy * cell; eye.pr = R0 * pupil * cell;
+    var hue = hueOf(accent); eye.glow = (hue < 20 || hue > 340) ? '255,110,199' : '255,40,70';   // red accent -> pink glow, otherwise red
   }
   var gw = 0, gh = 0, embers = [];
 
@@ -1014,8 +1006,15 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     g.globalAlpha = 1; g.globalCompositeOperation = 'destination-in'; g.drawImage(maskC, 0, 0);
     g.globalCompositeOperation = 'source-over';
     if (eye) {
-      g.globalAlpha = 0.9; g.drawImage(eyeC, eye.x, eye.y, eye.cols * eye.cell, eye.rows * eye.cell);
-      for (var i = 0; i < embers.length; i++) { var e = embers[i]; g.globalAlpha = Math.max(0, e.l) * 0.9; g.fillStyle = e.c; g.fillRect(e.x, e.y, e.s, e.s); }
+      g.globalAlpha = 0.62; g.drawImage(eyeC, eye.x, eye.y, eye.cols * eye.cell, eye.rows * eye.cell);   // dimmed: sits behind the page
+      // pupil glow (red on a purple/pink accent, pink on a red accent), breathing gently, gone when the eye closes
+      if (eye.px && eye.o > 0.15) {
+        var pulse = 0.8 + 0.2 * Math.sin(performance.now() / 700), R = eye.pr * 3.2;
+        var pg = g.createRadialGradient(eye.px, eye.py, eye.pr * 0.4, eye.px, eye.py, R);
+        pg.addColorStop(0, 'rgba(' + eye.glow + ',' + (0.85 * pulse * eye.o) + ')'); pg.addColorStop(0.35, 'rgba(' + eye.glow + ',' + (0.35 * pulse * eye.o) + ')'); pg.addColorStop(1, 'rgba(' + eye.glow + ',0)');
+        g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1; g.fillStyle = pg; g.fillRect(eye.px - R, eye.py - R, R * 2, R * 2);
+        g.globalCompositeOperation = 'source-over';
+      }
       g.globalAlpha = 1;
     }
   }
@@ -1067,7 +1066,6 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // the code that draws the eye keeps changing
     if (now - shuffleT > 140) { shuffleT = now; for (var k = 0; k < eye.chars.length * 0.08; k++) eye.chars[(Math.random() * eye.chars.length) | 0] = Math.random(); dirty = true; }
     if (dirty && now - (eye.rt || 0) > 48) { eye.rt = now; renderEye(); }
-    stepEmbers();
     paint();
   }
   function kick() { if (!raf && seen && !document.hidden && on && !still) raf = requestAnimationFrame(frame); }
