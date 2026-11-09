@@ -1013,13 +1013,15 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   var EYE_SETS = { lid: '#%&@$=', lower: '_~-', sclera: '.:', body: '.:;', pupil: '@#%&', ring: '01ABCDEF<>{}*', spike: '^/\\|*', hl: '+*', core: '@#0*%&', prim: '*o+:' };
   function renderEye(e) {
     var cell = Math.max(3, Math.round(e.w / 44)), C = Math.floor(e.w / cell), Rr = Math.floor(e.h / cell), o = e.o, x2 = e.ctx;
-    var Pin = [0.04 * C, 0.56 * Rr], Pout = [0.97 * C, 0.42 * Rr], uy = -0.16 * Rr + (1.0 * Rr + 0.16 * Rr) * (1 - o);
-    var U = yAt(Pin, [0.5 * C, uy], Pout), L = yAt(Pin, [0.52 * C, 1.16 * Rr], Pout);
+    var rg2 = e.rage || 0, oo = Math.min(o, 1 - 0.42 * rg2);                       // angry: narrower...
+    var Pin = [0.04 * C, (0.56 + 0.14 * rg2) * Rr], Pout = [0.97 * C, (0.42 - 0.06 * rg2) * Rr], uy = -0.16 * Rr + (1.0 * Rr + 0.16 * Rr) * (1 - oo);
+    var U = yAt(Pin, [(0.5 - 0.16 * rg2) * C, uy + 0.12 * rg2 * Rr], Pout), L = yAt(Pin, [0.52 * C, 1.16 * Rr], Pout);   // ...and slanted down to the inner corner
     var cU = new Float32Array(C), cL = new Float32Array(C);
     for (var q = 0; q < C; q++) { var xq = e.flip ? C - (q + 0.5) : q + 0.5; cU[q] = U(xq); cL[q] = L(xq); }
-    var ix = (0.5 + e.look) * C + e.gx / cell, iy = 0.52 * Rr + e.gy / cell, R0 = 0.23 * C, pupil = 0.24 + 0.1 * e.dil;
+    var ix = (0.5 + e.look * (1 - rg2)) * C + e.gx / cell, iy = 0.52 * Rr + e.gy / cell, R0 = 0.23 * C, pupil = (0.24 + 0.1 * e.dil) * (1 - 0.45 * rg2);
     var ringCol = mix(accent, WHITE, 0.25), body = mix(BLACK, accent, 0.18), lidCol = mix(BLACK, accent, 0.55);
     var hue0 = hueOf(accent); e.pg = (hue0 < 20 || hue0 > 340) ? '255,110,199' : '255,40,70'; var GL = e.pg.split(',').map(Number);
+    if (rg2 > 0.02) ringCol = mix(ringCol.match(/\d+/g).map(Number), GL, Math.min(1, rg2 * 1.1));          // rings burn in the glow colour
     var RINGS = [{ r: 0.48, n: 14, a: 0.22, ph: 0.1 }, { r: 0.68, n: 18, a: 0.17, ph: 0.55 }, { r: 0.86, n: 22, a: 0.12, ph: 0.3 }];
     x2.setTransform(1, 0, 0, 1, 0, 0); x2.clearRect(0, 0, e.cv.width, e.cv.height); x2.setTransform(ER, 0, 0, ER, 0, 0);
     x2.imageSmoothingEnabled = true; x2.imageSmoothingQuality = 'high';
@@ -1083,10 +1085,11 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     g.setTransform(edpr, 0, 0, edpr, 0, 0); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
     for (var n = 0; n < eyes.length; n++) {
       var e = eyes[n];
-      g.save(); g.translate(e.x + e.w / 2, e.y + e.h / 2); g.rotate(e.rot);
+      var tr = (e.rage || 0) * 1.6;
+      g.save(); g.translate(e.x + e.w / 2 + (Math.random() - 0.5) * tr, e.y + e.h / 2 + (Math.random() - 0.5) * tr); g.rotate(e.rot);
       g.globalAlpha = 0.62; g.drawImage(e.cv, -e.w / 2, -e.h / 2, e.w, e.h);         // dimmed: they sit behind the page
       if (e.px && e.o > 0.15) {
-        var lx = e.lx - e.w / 2, ly = e.ly - e.h / 2, pulse = 0.75 + 0.25 * Math.sin(performance.now() / 600 + n * 1.7), R = e.pr * 1.9;
+        var lx = e.lx - e.w / 2, ly = e.ly - e.h / 2, pulse = (0.75 + 0.25 * Math.sin(performance.now() / (600 - 380 * (e.rage || 0)) + n * 1.7)) * (1 + 0.9 * (e.rage || 0)), R = e.pr * (1.9 + 1.4 * (e.rage || 0));
         var pg = g.createRadialGradient(lx, ly, 0, lx, ly, R);
         pg.addColorStop(0, 'rgba(' + e.pg + ',' + (0.75 * pulse * e.o) + ')'); pg.addColorStop(0.45, 'rgba(' + e.pg + ',' + (0.3 * pulse * e.o) + ')'); pg.addColorStop(1, 'rgba(' + e.pg + ',0)');
         g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1; g.fillStyle = pg; g.fillRect(lx - R, ly - R, R * 2, R * 2);
@@ -1124,27 +1127,56 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     }
     rg.globalAlpha = 1;
     // each eye blinks, glances, dilates and lights its rings on its own clock; redraws are budgeted below
+    var angry = now < rageUntil;
     for (var n = 0; n < eyes.length; n++) {
       var ey = eyes[n], d2 = dirty;
       if (!ey.nextBlink) ey.nextBlink = now + 800 + Math.random() * 4000;
+      var rt0 = angry ? 1 : 0; if (Math.abs((ey.rage || 0) - rt0) > 0.005) { ey.rage = (ey.rage || 0) + (rt0 - (ey.rage || 0)) * (angry ? 0.2 : 0.06); d2 = true; } else ey.rage = rt0;
+      if (angry) { ey.blinkT = -1; ey.o = 1; ey.nextBlink = now + 1200 + Math.random() * 2000; }        // enraged eyes don't blink
       if (ey.blinkT < 0 && now >= ey.nextBlink) { ey.blinkT = now; ey.dbl = Math.random() < 0.25; }
       if (ey.blinkT >= 0) {
         var bt = now - ey.blinkT; ey.o = bt < 0 ? 1 : bt < 90 ? 1 - bt / 90 : bt < 140 ? 0 : bt < 290 ? (bt - 140) / 150 : 1; d2 = true;
         if (bt >= 290) { if (ey.dbl) { ey.blinkT = now + 60; ey.dbl = false; } else { ey.blinkT = -1; ey.nextBlink = now + 2400 + Math.random() * 4200; } }
       }
-      if (now > ey.nextLook) { ey.nextLook = now + 1600 + Math.random() * 2800; ey.tgx = (Math.random() - 0.5) * ey.w * 0.12; ey.tgy = (Math.random() - 0.5) * ey.h * 0.1; ey.tdil = Math.random(); }
-      if (Math.abs(ey.tgx - ey.gx) > 0.05 || Math.abs(ey.tgy - ey.gy) > 0.05) { ey.gx += (ey.tgx - ey.gx) * 0.18; ey.gy += (ey.tgy - ey.gy) * 0.18; d2 = true; }
+      if (angry && ptr.ok) {                                          // stare at the cursor
+        var cxE = ey.x + ey.w / 2, cyE = ey.y + ey.h / 2, vx = ptr.x - cxE, vy = ptr.y - cyE, cs = Math.cos(-ey.rot), sn = Math.sin(-ey.rot);
+        var lx2 = vx * cs - vy * sn, ly2 = vx * sn + vy * cs, dd = Math.hypot(lx2, ly2) || 1, k2 = Math.min(1, dd / 260);
+        ey.tgx = (ey.flip ? -1 : 1) * (lx2 / dd) * k2 * ey.w * 0.2; ey.tgy = (ly2 / dd) * k2 * ey.h * 0.16; ey.nextLook = now + 900;
+      } else if (now > ey.nextLook) { ey.nextLook = now + 1600 + Math.random() * 2800; ey.tgx = (Math.random() - 0.5) * ey.w * 0.12; ey.tgy = (Math.random() - 0.5) * ey.h * 0.1; ey.tdil = Math.random(); }
+      if (Math.abs(ey.tgx - ey.gx) > 0.05 || Math.abs(ey.tgy - ey.gy) > 0.05) { var fk = angry ? 0.35 : 0.18; ey.gx += (ey.tgx - ey.gx) * fk; ey.gy += (ey.tgy - ey.gy) * fk; d2 = true; }
       if (Math.abs(ey.tdil - ey.dil) > 0.01) { ey.dil += (ey.tdil - ey.dil) * 0.05; d2 = true; }
       if (Math.random() < 0.025) { ey.glow[(Math.random() * 3) | 0] = 1; }                  // a ring flares now and then
-      if (now - ey.shuf > 220) { ey.shuf = now; ey.spin = (ey.spin || 0) + 0.05; d2 = true; for (var q2 = 0; q2 < 120; q2++) ey.chars[(Math.random() * ey.chars.length) | 0] = Math.random(); }  // spikes turn + code changes, relaxed
+      if (now - ey.shuf > (angry ? 90 : 220)) { ey.shuf = now; ey.spin = (ey.spin || 0) + (angry ? 0.16 : 0.05); d2 = true; for (var q2 = 0; q2 < 120; q2++) ey.chars[(Math.random() * ey.chars.length) | 0] = Math.random(); }  // spikes turn + code changes, relaxed
       for (var k = 0; k < 4; k++) if (ey.glow[k] > 0.02) { ey.glow[k] *= 0.9; d2 = true; } else ey.glow[k] = 0;
       ey.dirty = ey.dirty || d2; ey.blinking = ey.blinkT >= 0;
     }
-    var budget = 2, order = eyes.filter(function (q) { return q.dirty; }).sort(function (p, q) { return (q.blinking - p.blinking) || (p.rt - q.rt); });
-    for (var bi = 0; bi < order.length && budget > 0; bi++) { var eb = order[bi]; if (!eb.blinking && now - eb.rt < 90) continue; eb.rt = now; eb.dirty = false; renderEye(eb); budget--; }
+    var budget = angry || eyes.some(function (q) { return q.rage > 0.01; }) ? 5 : 2, order = eyes.filter(function (q) { return q.dirty; }).sort(function (p, q) { return (q.blinking - p.blinking) || (p.rt - q.rt); });
+    for (var bi = 0; bi < order.length && budget > 0; bi++) { var eb = order[bi]; if (!eb.blinking && now - eb.rt < (angry ? 45 : 90)) continue; eb.rt = now; eb.dirty = false; renderEye(eb); budget--; }
     paint();
   }
   function kick() { if (!raf && seen && !document.hidden && on && !still) raf = requestAnimationFrame(frame); }
+  // poke an eye: every eye gets mad and follows the cursor for 7 seconds
+  var rageUntil = 0, ptr = { x: 0, y: 0, ok: false };
+  function eyeAt(x, y) {
+    for (var i = 0; i < eyes.length; i++) {
+      var e = eyes[i], dx = x - (e.x + e.w / 2), dy = y - (e.y + e.h / 2), cs = Math.cos(-e.rot), sn = Math.sin(-e.rot);
+      var lx = dx * cs - dy * sn, ly = dx * sn + dy * cs;
+      if ((lx / (e.w * 0.46)) ** 2 + (ly / (e.h * 0.4)) ** 2 < 1) return e;
+    }
+    return null;
+  }
+  function heroXY(ev) { var r = hero.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
+  hero.addEventListener('pointerdown', function (ev) {
+    if (!on || still) return;
+    var p = heroXY(ev);
+    if (eyeAt(p.x, p.y)) { rageUntil = performance.now() + 7000; ptr.x = p.x; ptr.y = p.y; ptr.ok = true; kick(); }
+  });
+  hero.addEventListener('pointermove', function (ev) {
+    if (!on) return;
+    var p = heroXY(ev); ptr.x = p.x; ptr.y = p.y; ptr.ok = true;
+    if (ev.pointerType === 'mouse') hero.style.cursor = eyeAt(p.x, p.y) ? 'pointer' : '';
+  }, { passive: true });
+  hero.addEventListener('pointerleave', function () { hero.style.cursor = ''; });
   new IntersectionObserver(function (es) { seen = es[0].isIntersecting; kick(); }).observe(hero);
   document.addEventListener('visibilitychange', kick);
   var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { layout(); kick(); }, 200); });
