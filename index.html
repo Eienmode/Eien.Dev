@@ -177,6 +177,7 @@ button{font:inherit;color:inherit}
 .hero-visual canvas.is-live{opacity:1}
 .hero-visual:has(#field.is-live){background:var(--ink)} /* the field is transparent between dots now; keep the base plain once it runs */
 .bgfx{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+.hero-visual canvas.hero-eye{image-rendering:auto} /* the dot field is meant to be pixelated; the eyes + rain are not */
 .hero-eye{position:absolute;left:0;top:0;z-index:-1;pointer-events:none} /* code eye + rain in the empty top-left triangle */
 .hero-visual::after{ /* keeps the name legible over the field */
   content:"";position:absolute;inset:0;
@@ -869,6 +870,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
   cv.classList.add('is-live');
   if (fieldCv) vis.insertBefore(cv, fieldCv); else if (vis) vis.appendChild(cv); else hero.prepend(cv);
   var maskC = document.createElement('canvas'), mg = maskC.getContext('2d');
+  var ER = 2;   // eyes are rendered at 2x and scaled down smoothly: crisp glyphs on any screen
   var g = cv.getContext('2d'), rainC = document.createElement('canvas'), rg = rainC.getContext('2d'),
       eyeC = document.createElement('canvas'), eg = eyeC.getContext('2d');
   var root = document.documentElement;
@@ -895,7 +897,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     var first = name.querySelector('.line') || name, rg0 = document.createRange(); rg0.selectNodeContents(first);
     var lr = rg0.getClientRects()[0] || name.getBoundingClientRect();
     var glyphTop = lr.top + lr.height * 0.45; // cap-height top sits ~45% down the line box for this face (measured)
-    W = hr.width; H = hr.height; dpr = 1; // rain + code glyphs read fine at 1x and cost a fraction
+    W = hr.width; H = hr.height; dpr = Math.min(2, window.devicePixelRatio || 1); // full screen sharpness
     var top = mr.bottom - hr.top + 14, bot = glyphTop - hr.top - 4, R = W * 0.58, h = bot - top;
     on = W >= 900 && h >= 170;
     cv.style.display = on ? '' : 'none';
@@ -935,7 +937,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     eyes = [];
     for (var si = 0; si < want; si++) {
       var ew = base * (0.88 + Math.random() * 0.24), eh = ew * 0.62, s0 = slots[si];
-      var ecv = document.createElement('canvas'); ecv.width = Math.ceil(ew); ecv.height = Math.ceil(eh);
+      var ecv = document.createElement('canvas'); ecv.width = Math.ceil(ew * ER); ecv.height = Math.ceil(eh * ER);
       eyes.push({ x: s0.x - ew / 2, y: s0.y - eh / 2, w: ew, h: eh, cv: ecv, ctx: ecv.getContext('2d'), o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0,
         chars: new Float32Array(2400).map(Math.random), shuf: 0, spin: Math.random(), dil: Math.random(), tdil: Math.random(), rot: POSES[si % POSES.length] + (Math.random() - 0.5) * 0.08, flip: Math.random() < 0.5,
         look: (Math.random() - 0.5) * 0.16,                                 // each has its own resting gaze direction
@@ -944,7 +946,7 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     // the open space left of / below "Jan": always give it an eye
     var wx = leftX * 0.42, wy = bot + (low - bot) * 0.38;
     if (!eyes.some(function (q) { return q.x + q.w / 2 < leftX && q.y > bot; })) {
-      var ww = Math.min(base * 1.05, leftX * 0.62), wh = ww * 0.62, wcv = document.createElement('canvas'); wcv.width = Math.ceil(ww); wcv.height = Math.ceil(wh);
+      var ww = Math.min(base * 1.05, leftX * 0.62), wh = ww * 0.62, wcv = document.createElement('canvas'); wcv.width = Math.ceil(ww * ER); wcv.height = Math.ceil(wh * ER);
       eyes.push({ x: wx - ww / 2, y: wy - wh / 2, w: ww, h: wh, cv: wcv, ctx: wcv.getContext('2d'), o: 1, gx: 0, gy: 0, tgx: 0, tgy: 0,
         chars: new Float32Array(2400).map(Math.random), shuf: 0, spin: Math.random(), dil: Math.random(), tdil: Math.random(), rot: 0.16, flip: false,
         look: 0.06, blinkT: -1, dbl: false, nextBlink: 0, nextLook: 0, glow: [0, 0, 0, 0], rt: 0 });
@@ -996,7 +998,8 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     var ix = (0.5 + e.look) * C + e.gx / cell, iy = 0.52 * Rr + e.gy / cell, R0 = 0.23 * C, pupil = 0.24 + 0.1 * e.dil;
     var ringCol = mix(accent, WHITE, 0.25), body = mix(BLACK, accent, 0.18), lidCol = mix(BLACK, accent, 0.55);
     var RINGS = [{ r: 0.48, n: 14, a: 0.22, ph: 0.1 }, { r: 0.68, n: 18, a: 0.17, ph: 0.55 }, { r: 0.86, n: 22, a: 0.12, ph: 0.3 }];
-    x2.setTransform(1, 0, 0, 1, 0, 0); x2.clearRect(0, 0, e.cv.width, e.cv.height);
+    x2.setTransform(1, 0, 0, 1, 0, 0); x2.clearRect(0, 0, e.cv.width, e.cv.height); x2.setTransform(ER, 0, 0, ER, 0, 0);
+    x2.imageSmoothingEnabled = true; x2.imageSmoothingQuality = 'high';
     var fpx = Math.round(cell * 1.1);
     for (var r = 0; r < Rr; r++) for (var c = 0; c < C; c++) {
       var x = e.flip ? C - (c + 0.5) : c + 0.5, y = r + 0.5, u = cU[c], l = cL[c], inX = x > Pin[0] && x < Pout[0];
@@ -1024,11 +1027,11 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
       }
       if (!kind) continue;
       var set = EYE_SETS[kind], ch = set[Math.floor(e.chars[(r * C + c) % e.chars.length] * set.length) % set.length];
-      var sp = spr(ch, col, fpx); x2.globalAlpha = al; x2.drawImage(sp, (c + 0.5) * cell - sp.width / 2, (r + 0.5) * cell - sp.height / 2);
+      var sp = spr(ch, col, fpx * ER), sw = sp.width / ER; x2.globalAlpha = al; x2.drawImage(sp, (c + 0.5) * cell - sw / 2, (r + 0.5) * cell - sw / 2, sw, sw);
     }
     x2.globalAlpha = 1;
     // faded border
-    var Wp = e.cv.width, Hp = e.cv.height;
+    var Wp = e.w, Hp = e.h;
     x2.save(); x2.globalCompositeOperation = 'destination-in'; x2.translate(Wp / 2, Hp * 0.55); x2.scale(1, Hp / Wp * 1.25);
     var fade = x2.createRadialGradient(0, 0, Wp * 0.2, 0, 0, Wp * 0.53); fade.addColorStop(0, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,0)');
     x2.fillStyle = fade; x2.fillRect(-Wp, -Wp, Wp * 2, Wp * 2); x2.restore();
@@ -1044,12 +1047,13 @@ footer{border-top:1px solid var(--line);padding:1.6rem 0 2rem;color:var(--mute)}
     if (!on || !tri) return;
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
     g.globalAlpha = 0.55; g.drawImage(rainC, 0, 0);
-    g.globalAlpha = 1; g.globalCompositeOperation = 'destination-in'; g.drawImage(maskC, 0, 0);
+    g.globalAlpha = 1; g.globalCompositeOperation = 'destination-in'; g.drawImage(maskC, 0, 0, cv.width, cv.height);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
     g.globalCompositeOperation = 'source-over';
     for (var n = 0; n < eyes.length; n++) {
       var e = eyes[n];
       g.save(); g.translate(e.x + e.w / 2, e.y + e.h / 2); g.rotate(e.rot);
-      g.globalAlpha = 0.62; g.drawImage(e.cv, -e.w / 2, -e.h / 2);         // dimmed: they sit behind the page
+      g.globalAlpha = 0.62; g.drawImage(e.cv, -e.w / 2, -e.h / 2, e.w, e.h);         // dimmed: they sit behind the page
       if (e.px && e.o > 0.15) {
         var lx = e.lx - e.w / 2, ly = e.ly - e.h / 2, pulse = 0.8 + 0.2 * Math.sin(performance.now() / 700 + n), R = e.pr * 3.2;
         var pg = g.createRadialGradient(lx, ly, e.pr * 0.4, lx, ly, R);
